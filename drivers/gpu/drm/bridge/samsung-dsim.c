@@ -217,21 +217,29 @@
 #define DSI_XFER_TIMEOUT_MS		100
 #define DSI_RX_FIFO_EMPTY		0x30800002
 
-#define OLD_SCLK_MIPI_CLK_NAME		"pll_clk"
-
 #define PS_TO_CYCLE(ps, hz) DIV64_U64_ROUND_CLOSEST(((ps) * (hz)), 1000000000000ULL)
-
-static const char *const clk_names[5] = {
-	"bus_clk",
-	"sclk_mipi",
-	"phyclk_mipidphy0_bitclkdiv8",
-	"phyclk_mipidphy0_rxclkesc0",
-	"sclk_rgb_vclk_to_dsim0"
-};
 
 enum samsung_dsim_transfer_type {
 	EXYNOS_DSI_TX,
 	EXYNOS_DSI_RX,
+};
+
+static struct clk_bulk_data exynos3_clk_bulk_data[] = {
+	{ .id = "bus_clk" },
+	{ .id = "pll_clk" },
+};
+
+static struct clk_bulk_data exynos4_clk_bulk_data[] = {
+	{ .id = "bus_clk" },
+	{ .id = "sclk_mipi" },
+};
+
+static struct clk_bulk_data exynos5433_clk_bulk_data[] = {
+	{ .id = "bus_clk" },
+	{ .id = "sclk_mipi" },
+	{ .id = "phyclk_mipidphy0_bitclkdiv8" },
+	{ .id = "phyclk_mipidphy0_rxclkesc0" },
+	{ .id = "sclk_rgb_vclk_to_dsim0" },
 };
 
 enum reg_idx {
@@ -406,7 +414,8 @@ static const struct samsung_dsim_driver_data exynos3_dsi_driver_data = {
 	.has_legacy_status_reg = 1,
 	.has_freqband = 1,
 	.has_clklane_stop = 1,
-	.num_clks = 2,
+	.clk_data = exynos3_clk_bulk_data,
+	.num_clks = ARRAY_SIZE(exynos3_clk_bulk_data),
 	.max_freq = 1000,
 	.wait_for_hdr_fifo = 1,
 	.wait_for_reset = 1,
@@ -437,7 +446,8 @@ static const struct samsung_dsim_driver_data exynos4_dsi_driver_data = {
 	.has_legacy_status_reg = 1,
 	.has_freqband = 1,
 	.has_clklane_stop = 1,
-	.num_clks = 2,
+	.clk_data = exynos4_clk_bulk_data,
+	.num_clks = ARRAY_SIZE(exynos4_clk_bulk_data),
 	.max_freq = 1000,
 	.wait_for_hdr_fifo = 1,
 	.wait_for_reset = 1,
@@ -466,7 +476,8 @@ static const struct samsung_dsim_driver_data exynos5_dsi_driver_data = {
 	.reg_ofs = exynos_reg_ofs,
 	.plltmr_reg = 0x58,
 	.has_legacy_status_reg = 1,
-	.num_clks = 2,
+	.clk_data = exynos3_clk_bulk_data,
+	.num_clks = ARRAY_SIZE(exynos3_clk_bulk_data),
 	.max_freq = 1000,
 	.wait_for_hdr_fifo = 1,
 	.wait_for_reset = 1,
@@ -495,7 +506,8 @@ static const struct samsung_dsim_driver_data exynos5433_dsi_driver_data = {
 	.plltmr_reg = 0xa0,
 	.has_legacy_status_reg = 1,
 	.has_clklane_stop = 1,
-	.num_clks = 5,
+	.clk_data = exynos5433_clk_bulk_data,
+	.num_clks = ARRAY_SIZE(exynos5433_clk_bulk_data),
 	.max_freq = 1500,
 	.wait_for_hdr_fifo = 1,
 	.wait_for_reset = 0,
@@ -524,7 +536,8 @@ static const struct samsung_dsim_driver_data exynos5422_dsi_driver_data = {
 	.plltmr_reg = 0xa0,
 	.has_legacy_status_reg = 1,
 	.has_clklane_stop = 1,
-	.num_clks = 2,
+	.clk_data = exynos3_clk_bulk_data,
+	.num_clks = ARRAY_SIZE(exynos3_clk_bulk_data),
 	.max_freq = 1500,
 	.wait_for_hdr_fifo = 1,
 	.wait_for_reset = 1,
@@ -553,7 +566,8 @@ static const struct samsung_dsim_driver_data imx8mm_dsi_driver_data = {
 	.plltmr_reg = 0xa0,
 	.has_legacy_status_reg = 1,
 	.has_clklane_stop = 1,
-	.num_clks = 2,
+	.clk_data = exynos4_clk_bulk_data,
+	.num_clks = ARRAY_SIZE(exynos4_clk_bulk_data),
 	.max_freq = 2100,
 	.wait_for_hdr_fifo = 1,
 	.wait_for_reset = 0,
@@ -2039,7 +2053,7 @@ int samsung_dsim_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct samsung_dsim *dsi;
-	int ret, i;
+	int ret;
 
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
@@ -2063,23 +2077,11 @@ int samsung_dsim_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to get regulators\n");
 
-	dsi->clks = devm_kcalloc(dev, dsi->driver_data->num_clks,
-				 sizeof(*dsi->clks), GFP_KERNEL);
-	if (!dsi->clks)
-		return -ENOMEM;
-
-	for (i = 0; i < dsi->driver_data->num_clks; i++) {
-		dsi->clks[i] = devm_clk_get(dev, clk_names[i]);
-		if (IS_ERR(dsi->clks[i])) {
-			if (strcmp(clk_names[i], "sclk_mipi") == 0) {
-				dsi->clks[i] = devm_clk_get(dev, OLD_SCLK_MIPI_CLK_NAME);
-				if (!IS_ERR(dsi->clks[i]))
-					continue;
-			}
-
-			dev_info(dev, "failed to get the clock: %s\n", clk_names[i]);
-			return PTR_ERR(dsi->clks[i]);
-		}
+	ret = devm_clk_bulk_get(dev, dsi->driver_data->num_clks,
+				dsi->driver_data->clk_data);
+	if (ret) {
+		dev_err(dev, "failed to get clocks in bulk (%d)\n", ret);
+		return ret;
 	}
 
 	dsi->reg_base = devm_platform_ioremap_resource(pdev, 0);
@@ -2153,7 +2155,7 @@ static int __maybe_unused samsung_dsim_suspend(struct device *dev)
 {
 	struct samsung_dsim *dsi = dev_get_drvdata(dev);
 	const struct samsung_dsim_driver_data *driver_data = dsi->driver_data;
-	int ret, i;
+	int ret;
 
 	usleep_range(10000, 20000);
 
@@ -2169,8 +2171,7 @@ static int __maybe_unused samsung_dsim_suspend(struct device *dev)
 
 	phy_power_off(dsi->phy);
 
-	for (i = driver_data->num_clks - 1; i > -1; i--)
-		clk_disable_unprepare(dsi->clks[i]);
+	clk_bulk_disable_unprepare(driver_data->num_clks, driver_data->clk_data);
 
 	ret = regulator_bulk_disable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
 	if (ret < 0)
@@ -2183,7 +2184,7 @@ static int __maybe_unused samsung_dsim_resume(struct device *dev)
 {
 	struct samsung_dsim *dsi = dev_get_drvdata(dev);
 	const struct samsung_dsim_driver_data *driver_data = dsi->driver_data;
-	int ret, i;
+	int ret;
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
 	if (ret < 0) {
@@ -2191,11 +2192,9 @@ static int __maybe_unused samsung_dsim_resume(struct device *dev)
 		return ret;
 	}
 
-	for (i = 0; i < driver_data->num_clks; i++) {
-		ret = clk_prepare_enable(dsi->clks[i]);
-		if (ret < 0)
-			goto err_clk;
-	}
+	ret = clk_bulk_prepare_enable(driver_data->num_clks, driver_data->clk_data);
+	if (ret < 0)
+		goto err_clk;
 
 	ret = phy_power_on(dsi->phy);
 	if (ret < 0) {
@@ -2206,8 +2205,7 @@ static int __maybe_unused samsung_dsim_resume(struct device *dev)
 	return 0;
 
 err_clk:
-	while (--i > -1)
-		clk_disable_unprepare(dsi->clks[i]);
+	clk_bulk_disable_unprepare(driver_data->num_clks, driver_data->clk_data);
 	regulator_bulk_disable(ARRAY_SIZE(dsi->supplies), dsi->supplies);
 
 	return ret;
