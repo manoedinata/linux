@@ -213,6 +213,12 @@ properties:
               - samsung,exynos7-espresso        # Samsung Exynos7 Espresso
           - const: samsung,exynos7
 
+      - description: Exynos7570 based boards
+        items:
+          - enum:
+              - samsung,j4lte                   # Samsung Galaxy J4
+          - const: samsung,exynos7570
+
       - description: Exynos7870 based boards
         items:
           - enum:

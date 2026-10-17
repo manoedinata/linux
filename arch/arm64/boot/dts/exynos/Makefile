@@ -7,6 +7,7 @@ dtb-$(CONFIG_ARCH_EXYNOS) += \
 	exynos5433-tm2.dtb		\
 	exynos5433-tm2e.dtb		\
 	exynos7-espresso.dtb		\
+	exynos7570-j4lte.dtb		\
 	exynos7870-a2corelte.dtb	\
 	exynos7870-j5y17lte.dtb		\
 	exynos7870-j6lte.dtb		\

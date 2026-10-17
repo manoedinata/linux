@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Samsung Galaxy J4 (j4lte) device tree source
+ *
+ * Copyright (c) 2018 Samsung Electronics Co., Ltd.
+ */
+
+/dts-v1/;
+#include "exynos7570.dtsi"
+
+/ {
+	model = "Samsung Galaxy J4";
+	compatible = "samsung,j4lte", "samsung,exynos7570";
+	chassis-type = "handset";
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused";
+
+		/* Set up by the bootloader (uniLoader), scanned out by DECON */
+		framebuffer0: framebuffer@67000000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0x67000000 (720 * 1280 * 4)>;
+			width = <720>;
+			height = <1280>;
+			stride = <(720 * 4)>;
+			format = "a8r8g8b8";
+		};
+	};
+
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x0 0x40000000 0x3e800000>,
+		      <0x0 0x80000000 0x40000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		/* Survives a warm reset, see mainline-tools/ramretain */
+		ramoops@7e100000 {
+			compatible = "ramoops";
+			reg = <0x0 0x7e100000 0x200000>;
+			record-size = <0x20000>;
+			console-size = <0x100000>;
+			pmsg-size = <0x20000>;
+			no-map;
+		};
+
+		framebuffer@67000000 {
+			reg = <0x0 0x67000000 (720 * 1280 * 4)>;
+			no-map;
+		};
+
+		tima@52800000 {
+			reg = <0x0 0x52800000 0x200000>;
+			no-map;
+		};
+
+		camera@710ef000 {
+			reg = <0x0 0x710ef000 0x1000>;
+			no-map;
+		};
+
+		video-fw@710f0000 {
+			reg = <0x0 0x710f0000 0x110000>;
+			no-map;
+		};
+
+		video-stream@72200000 {
+			reg = <0x0 0x72200000 0x1200000>;
+			no-map;
+		};
+
+		modem@73400000 {
+			reg = <0x0 0x73400000 0x5c00000>;
+			no-map;
+		};
+
+		wifibt@79000000 {
+			reg = <0x0 0x79000000 0x400000>;
+			no-map;
+		};
+	};
+};
