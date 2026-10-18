@@ -29,6 +29,27 @@ properties:
     $ref: /schemas/types.yaml#/definitions/phandle
     description: Battery described by a simple-battery node, used by the fuel gauge.
 
+  io-channels:
+    maxItems: 1
+    description: ADC channel the battery thermistor is wired to.
+
+  io-channel-names:
+    const: adc-temp
+
+  samsung,temp-adc-table:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+    maxItems: 64
+    description: Raw ADC values of the thermistor lookup table, ascending.
+
+  samsung,temp-decidegc-table:
+    $ref: /schemas/types.yaml#/definitions/int32-array
+    minItems: 2
+    maxItems: 64
+    description:
+      Battery temperature in tenths of a degree Celsius for each value of
+      samsung,temp-adc-table.
+
   regulators:
     type: object
     description: Regulator nodes named after the rails.
