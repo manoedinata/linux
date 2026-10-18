@@ -5,6 +5,7 @@
  * Copyright (c) 2016 Samsung Electronics Co., Ltd.
  */
 
+#include <dt-bindings/clock/samsung,exynos7570-cmu.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -98,6 +99,24 @@
 			reg = <0x10100000 0x100>;
 		};
 
+		cmu_peri: clock-controller@101f0000 {
+			compatible = "samsung,exynos7570-cmu-peri";
+			reg = <0x101f0000 0x1000>;
+			#clock-cells = <1>;
+
+			clock-names = "oscclk";
+			clocks = <&oscclk>;
+		};
+
+		cmu_mif: clock-controller@10460000 {
+			compatible = "samsung,exynos7570-cmu-mif";
+			reg = <0x10460000 0x1000>;
+			#clock-cells = <1>;
+
+			clock-names = "oscclk";
+			clocks = <&oscclk>;
+		};
+
 		gic: interrupt-controller@104e1000 {
 			compatible = "arm,cortex-a15-gic";
 			reg = <0x104e1000 0x1000>,
@@ -109,6 +128,15 @@
 			interrupt-controller;
 			#address-cells = <0>;
 			#interrupt-cells = <3>;
+		};
+
+		cmu_fsys: clock-controller@13730000 {
+			compatible = "samsung,exynos7570-cmu-fsys";
+			reg = <0x13730000 0x1000>;
+			#clock-cells = <1>;
+
+			clock-names = "oscclk";
+			clocks = <&oscclk>;
 		};
 	};
 
