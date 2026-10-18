@@ -50,6 +50,54 @@ properties:
       Battery temperature in tenths of a degree Celsius for each value of
       samsung,temp-adc-table.
 
+  samsung,capacity-max:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    default: 1000
+    description:
+      Gauge reading, in tenths of a percent, that counts as 100 % of the
+      capacity before the scale is stretched at the end of a charge.
+
+  samsung,capacity-max-margin:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    default: 0
+    description:
+      How far, in tenths of a percent, samsung,capacity-max may be adapted.
+
+  samsung,fuel-alert-soc:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 15
+    default: 1
+    description: Capacity in percent below which the gauge raises its low-battery alert.
+
+  samsung,age-cycles:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 1
+    maxItems: 8
+    description: Charge cycle count from which each ageing step applies, ascending.
+
+  samsung,age-float-microvolt:
+    $ref: /schemas/types.yaml#/definitions/uint32-matrix
+    minItems: 1
+    maxItems: 8
+    items:
+      maxItems: 1
+    description: Charge float voltage of each ageing step.
+
+  samsung,age-raw100-millivolt:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 1
+    maxItems: 8
+    description: Battery voltage at which the gauge reads 100 % in each ageing step.
+
+  samsung,cell-character0:
+    $ref: /schemas/types.yaml#/definitions/uint8-array
+    description: The 164 bytes of cell characteristics (gauge registers 0x34..0xd7) of every step.
+
+  samsung,cell-character1:
+    $ref: /schemas/types.yaml#/definitions/uint8-array
+    description: The 5 bytes of cell characteristics (gauge registers 0x0f..0x13) of every step.
+
   regulators:
     type: object
     description: Regulator nodes named after the rails.

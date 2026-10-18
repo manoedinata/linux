@@ -104,6 +104,8 @@ struct s2mpu06_charger {
 
 	enum s2mpu06_temp_state state;
 	unsigned int mode_before_block;
+	bool inhibit;	/* userspace asked for no charging */
+	bool blocked;	/* the charger is switched off for any reason */
 };
 
 static unsigned int s2mpu06_ichg_to_sel(int ua)
@@ -165,10 +167,15 @@ static int s2mpu06_charger_apply_limits(struct s2mpu06_charger *chg)
 	return regmap_write(chg->s2m->chg, S2MPU06_CHG_CTRL1, chg->req_iin_sel);
 }
 
-static int s2mpu06_charger_set_block(struct s2mpu06_charger *chg, bool block)
+/* charging is off while the battery is too hot or too cold or when userspace inhibits it */
+static int s2mpu06_charger_update_block(struct s2mpu06_charger *chg)
 {
+	bool block = chg->inhibit || chg->state >= S2MPU06_TEMP_COLD_BLOCK;
 	unsigned int mode;
 	int ret;
+
+	if (block == chg->blocked)
+		return 0;
 
 	ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL3, &mode);
 	if (ret)
@@ -184,8 +191,12 @@ static int s2mpu06_charger_set_block(struct s2mpu06_charger *chg, bool block)
 		mode = chg->mode_before_block;
 	}
 
-	return regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL3, S2MPU06_CHG_CTRL3_MODE,
-				  FIELD_PREP(S2MPU06_CHG_CTRL3_MODE, mode));
+	ret = regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL3, S2MPU06_CHG_CTRL3_MODE,
+				 FIELD_PREP(S2MPU06_CHG_CTRL3_MODE, mode));
+	if (!ret)
+		chg->blocked = block;
+
+	return ret;
 }
 
 static enum s2mpu06_temp_state s2mpu06_charger_next_state(enum s2mpu06_temp_state cur, int t)
@@ -247,10 +258,8 @@ static void s2mpu06_charger_thermal(struct s2mpu06_charger *chg)
 	chg->state = next;
 	ret = s2mpu06_charger_apply_limits(chg);
 
-	if (!ret && next >= S2MPU06_TEMP_COLD_BLOCK && old < S2MPU06_TEMP_COLD_BLOCK)
-		ret = s2mpu06_charger_set_block(chg, true);
-	else if (!ret && next < S2MPU06_TEMP_COLD_BLOCK && old >= S2MPU06_TEMP_COLD_BLOCK)
-		ret = s2mpu06_charger_set_block(chg, false);
+	if (!ret)
+		ret = s2mpu06_charger_update_block(chg);
 
 	/* try again at the next poll */
 	if (ret)
@@ -372,6 +381,10 @@ static int s2mpu06_charger_get_property(struct power_supply *psy,
 			return ret;
 		val->intval = s2mpu06_sel_to_vfloat(reg);
 		return 0;
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		val->intval = chg->inhibit ? POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE :
+					     POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -396,6 +409,18 @@ static int s2mpu06_charger_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		chg->req_vfloat_sel = s2mpu06_vfloat_to_sel(val->intval);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		if (val->intval != POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO &&
+		    val->intval != POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE) {
+			mutex_unlock(&chg->lock);
+			return -EINVAL;
+		}
+		chg->inhibit = val->intval == POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE;
+		ret = s2mpu06_charger_update_block(chg);
+		mutex_unlock(&chg->lock);
+		if (!ret)
+			power_supply_changed(psy);
+		return ret;
 	default:
 		mutex_unlock(&chg->lock);
 		return -EINVAL;
@@ -415,6 +440,7 @@ static int s2mpu06_charger_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
 		return 1;
 	default:
 		return 0;
@@ -430,6 +456,7 @@ static const enum power_supply_property s2mpu06_charger_props[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
+	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
 };
 
 static char *s2mpu06_charger_supplicants[] = { "s2mpu06-fuelgauge" };
@@ -437,6 +464,8 @@ static char *s2mpu06_charger_supplicants[] = { "s2mpu06-fuelgauge" };
 static const struct power_supply_desc s2mpu06_charger_desc = {
 	.name = "s2mpu06-charger",
 	.type = POWER_SUPPLY_TYPE_MAINS,
+	.charge_behaviours = BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO) |
+			     BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE),
 	.properties = s2mpu06_charger_props,
 	.num_properties = ARRAY_SIZE(s2mpu06_charger_props),
 	.get_property = s2mpu06_charger_get_property,

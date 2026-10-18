@@ -65,7 +65,7 @@ static int s2mpu06_irq_pre(void *data)
 {
 	struct s2mpu06 *s2m = data;
 	u8 buf[S2MPU06_CHG_NUM_INT];
-	unsigned int src;
+	unsigned int src, fg_status;
 	int ret;
 
 	ret = regmap_read(s2m->top, S2MPU06_TOP_INTSRC, &src);
@@ -74,8 +74,9 @@ static int s2mpu06_irq_pre(void *data)
 
 	if ((src & S2MPU06_INTSRC_CHG) && s2m->chg)
 		regmap_bulk_read(s2m->chg, S2MPU06_CHG_INT1, buf, S2MPU06_CHG_NUM_INT);
-	if ((src & S2MPU06_INTSRC_FG) && s2m->fg)
-		regmap_read(s2m->fg, S2MPU06_FG_IRQ_INT, &ret);
+	if ((src & S2MPU06_INTSRC_FG) && s2m->fg &&
+	    !regmap_read(s2m->fg, S2MPU06_FG_IRQ_INT, &fg_status))
+		blocking_notifier_call_chain(&s2m->fg_nh, fg_status, NULL);
 	if ((src & S2MPU06_INTSRC_CODEC) && s2m->codec)
 		regmap_bulk_read(s2m->codec, S2MPU06_CODEC_INT1, buf, 3);
 
@@ -120,6 +121,7 @@ static int s2mpu06_probe(struct platform_device *pdev)
 	if (!s2m)
 		return -ENOMEM;
 	s2m->dev = dev;
+	BLOCKING_INIT_NOTIFIER_HEAD(&s2m->fg_nh);
 
 	s2m->top = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_TOP);
 	if (IS_ERR(s2m->top))

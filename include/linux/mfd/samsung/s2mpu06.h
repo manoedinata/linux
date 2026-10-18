@@ -6,6 +6,9 @@
 #ifndef __LINUX_MFD_S2MPU06_H
 #define __LINUX_MFD_S2MPU06_H
 
+#include <linux/bits.h>
+#include <linux/notifier.h>
+
 struct device;
 struct regmap;
 
@@ -54,6 +57,12 @@ struct s2mpu06 {
 	struct regmap *fg;
 	struct regmap *codec;
 	struct regmap_irq_chip_data *irq_data;
+
+	/* called with the fuel gauge's interrupt status (VBAT low, SOC low, ...) */
+	struct blocking_notifier_head fg_nh;
 };
+
+#define S2MPU06_FG_IRQ_VBAT_LOW		BIT(0)
+#define S2MPU06_FG_IRQ_SOC_LOW		BIT(1)
 
 #endif
