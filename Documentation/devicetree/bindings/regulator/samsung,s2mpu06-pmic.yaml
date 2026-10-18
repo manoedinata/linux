@@ -29,6 +29,13 @@ properties:
     $ref: /schemas/types.yaml#/definitions/phandle
     description: Battery described by a simple-battery node, used by the fuel gauge.
 
+  extcon:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    maxItems: 1
+    description:
+      MUIC whose cable detection sets the input and charge current of the
+      charger.
+
   io-channels:
     maxItems: 1
     description: ADC channel the battery thermistor is wired to.

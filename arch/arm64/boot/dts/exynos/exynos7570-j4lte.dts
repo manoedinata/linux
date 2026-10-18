@@ -164,6 +164,7 @@
 		pinctrl-0 = <&pmic_irq>;
 
 		monitored-battery = <&battery>;
+		extcon = <&muic>;
 
 		/* battery NTC on the AP's ADC channel 1 */
 		io-channels = <&adc 1>;
@@ -413,5 +414,18 @@
 				regulator-ramp-delay = <12000>;
 			};
 		};
+	};
+};
+
+&i2c_muic {
+	status = "okay";
+
+	muic: muic@14 {
+		compatible = "siliconmitus,sm5504-muic";
+		reg = <0x14>;
+		interrupt-parent = <&gpa1>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&muic_irq>;
 	};
 };
