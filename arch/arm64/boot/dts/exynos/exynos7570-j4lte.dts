@@ -18,7 +18,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused";
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused j4.autoreboot=45";
 
 		/* Set up by the bootloader (uniLoader), scanned out by DECON */
 		framebuffer0: framebuffer@67000000 {
@@ -49,6 +49,7 @@
 			record-size = <0x20000>;
 			console-size = <0x100000>;
 			pmsg-size = <0x20000>;
+			ecc-size = <16>;
 			no-map;
 		};
 
