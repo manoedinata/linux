@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/samsung/samsung,exynos7570-speedy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Samsung Exynos SPEEDY (one-wire PMIC bus) controller
+
+maintainers:
+  - Hendra Manudinata <manoedinata@gmail.com>
+
+description:
+  SPEEDY (Serial Protocol in an EffEctive Digital waY) is the one-wire
+  bus that connects the application processor to its PMIC. The slave
+  exposes up to 16 register blocks of 256 registers; child nodes
+  describe the slave devices.
+
+properties:
+  compatible:
+    const: samsung,exynos7570-speedy
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 2
+
+  clock-names:
+    items:
+      - const: pclk
+      - const: clk
+
+  samsung,always-interrupt-high:
+    type: boolean
+    description:
+      Program the FIFO trigger levels so that the IP interrupt line stays
+      high while the IP batcher runs, which the batcher needs to avoid a
+      timeout.
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+patternProperties:
+  "^pmic@[0-9a-f]+$":
+    $ref: /schemas/regulator/samsung,s2mpu06-pmic.yaml
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/samsung,exynos7570-cmu.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    bus@10510000 {
+        compatible = "samsung,exynos7570-speedy";
+        reg = <0x10510000 0x2000>;
+        interrupts = <GIC_SPI 372 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&cmu_mif CLK_GOUT_MIF_SPEEDY_PCLK>,
+                 <&cmu_mif CLK_GOUT_MIF_SPEEDY_CLK>;
+        clock-names = "pclk", "clk";
+        samsung,always-interrupt-high;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@0 {
+            compatible = "samsung,s2mpu06-pmic";
+            reg = <0>;
+
+            regulators {
+                LDO1 {
+                    regulator-name = "vdd_ldo1";
+                    regulator-min-microvolt = <500000>;
+                    regulator-max-microvolt = <1300000>;
+                };
+            };
+        };
+    };
