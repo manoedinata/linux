@@ -273,7 +273,7 @@ static const struct samsung_gate_clock fsys_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_FSYS_USB20DRD_HCLK_CTRL, "gout_fsys_usb20drd_hclk_ctrl", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 21, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_FSYS_USB20DRD_ACLK_HSDRD, "gout_fsys_usb20drd_aclk_hsdrd", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 20, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_FSYS_USB20DRD_REF_CLK, "gout_fsys_usb20drd_ref_clk", "gout_mif_cmu_fsys_usb20drd_refclk", CLK_ENABLE_CLK_FSYS_USB20DRD_REFCLK, 0, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_GOUT_FSYS_USB20DRD_PHYCLOCK, "gout_fsys_usb20drd_phyclock", "mout_fsys_usb20drd_phyclock_user", CLK_ENABLE_CLKPHY_FSYS_USB20DRD_PHYCLOCK, 0, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_FSYS_USB20DRD_PHYCLOCK, "gout_fsys_usb20drd_phyclock", "mout_fsys_usb20drd_phyclock_user", CLK_ENABLE_CLKPHY_FSYS_USB20DRD_PHYCLOCK, 0, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_FSYS_USB20DRD_CLKCORE, "gout_fsys_usb20drd_clkcore", "fout_fsys_wpll_usb", CLK_ENABLE_CLK_FSYS_USB20PHY_CLKCORE, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_FSYS_GPIO_PCLK, "gout_fsys_gpio_pclk", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 13, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_FSYS_SYSREG_PCLK, "gout_fsys_sysreg_pclk", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 19, CLK_IS_CRITICAL, 0),
