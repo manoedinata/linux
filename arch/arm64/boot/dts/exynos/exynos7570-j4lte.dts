@@ -122,6 +122,7 @@
 	samsung,dw-mshc-sdr-timing = <0 2>;
 	samsung,dw-mshc-ddr-timing = <2 4>;
 	non-removable;
+	cap-mmc-highspeed;
 	mmc-ddr-1_8v;
 	no-sd;
 	no-sdio;
