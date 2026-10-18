@@ -8,14 +8,18 @@
  * "pwrcal" tables for S5E7570. Muxes are modelled by their select field only;
  * the per-mux enable bit (bit 21) is left as the bootloader set it.
  *
- * The USB20 PHY core clock comes from a handshake-controlled 20 MHz USB PLL
- * (WPLL); only its rate is represented here (frat_fsys_wifi2ap_usbpll), its
- * enable sequencing is not modelled yet.
+ * The USB20 PHY core clock comes from the 20 MHz USB PLL (WPLL), which sits
+ * behind the WLBT block. It is registered by hand below and enabled by the AP,
+ * the way the downstream kernel does when WLBT firmware is not using it.
  */
 
 #include <linux/clk-provider.h>
+#include <linux/delay.h>
+#include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include <dt-bindings/clock/samsung,exynos7570-cmu.h>
 
@@ -126,7 +130,7 @@ static const unsigned long mif_clk_regs[] __initconst = {
 };
 
 static const struct samsung_fixed_rate_clock mif_fixed_clks[] __initconst = {
-	FRATE(0, "frat_mif_tcxo", NULL, 0, 26000000),
+	FRATE(CLK_FRAT_MIF_TCXO, "frat_mif_tcxo", NULL, 0, 26000000),
 };
 
 static const struct samsung_fixed_factor_clock mif_fixed_factor_clks[] __initconst = {
@@ -251,8 +255,7 @@ static const unsigned long fsys_clk_regs[] __initconst = {
 };
 
 static const struct samsung_fixed_rate_clock fsys_fixed_clks[] __initconst = {
-	FRATE(0, "frat_fsys_usb20drd_phyclock", NULL, 0, 60000000),
-	FRATE(0, "frat_fsys_wifi2ap_usbpll", NULL, 0, 20000000),
+	FRATE(CLK_FRAT_FSYS_USB20DRD_PHYCLOCK, "frat_fsys_usb20drd_phyclock", NULL, 0, 60000000),
 };
 
 /* List of parent clocks for muxes in CMU_FSYS */
@@ -271,7 +274,7 @@ static const struct samsung_gate_clock fsys_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_FSYS_USB20DRD_ACLK_HSDRD, "gout_fsys_usb20drd_aclk_hsdrd", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 20, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_FSYS_USB20DRD_REF_CLK, "gout_fsys_usb20drd_ref_clk", "gout_mif_cmu_fsys_usb20drd_refclk", CLK_ENABLE_CLK_FSYS_USB20DRD_REFCLK, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_FSYS_USB20DRD_PHYCLOCK, "gout_fsys_usb20drd_phyclock", "mout_fsys_usb20drd_phyclock_user", CLK_ENABLE_CLKPHY_FSYS_USB20DRD_PHYCLOCK, 0, CLK_SET_RATE_PARENT, 0),
-	GATE(CLK_GOUT_FSYS_USB20DRD_CLKCORE, "gout_fsys_usb20drd_clkcore", "frat_fsys_wifi2ap_usbpll", CLK_ENABLE_CLK_FSYS_USB20PHY_CLKCORE, 0, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_FSYS_USB20DRD_CLKCORE, "gout_fsys_usb20drd_clkcore", "fout_fsys_wpll_usb", CLK_ENABLE_CLK_FSYS_USB20PHY_CLKCORE, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_FSYS_GPIO_PCLK, "gout_fsys_gpio_pclk", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 13, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_FSYS_SYSREG_PCLK, "gout_fsys_sysreg_pclk", "gout_mif_cmu_fsys_bus", CLK_ENABLE_CLK_FSYS_BUS, 19, CLK_IS_CRITICAL, 0),
 };
@@ -380,6 +383,105 @@ static const struct samsung_cmu_info peri_cmu_info __initconst = {
 	.nr_clk_ids		= PERI_NR_CLK,
 };
 
+/*
+ * USB PLL (WPLL), the 20 MHz reference of the USB PHY. The PLL itself is in
+ * the WLBT block; USBPLL_CON1 in CMU_FSYS tells who drives it. Without WLBT
+ * firmware the AP owns it: select the 26 MHz reference, enable it, hand the
+ * ownership to the AP and start the AFC (same steps and 20 us delay as the
+ * downstream pwrcal / SCSC code, usbpll,owner = "y", usbpll,udelay = <20>).
+ */
+#define USBPLL_CON1_OFFSET	0x1004
+#define USBPLL_WPLL_SEL		BIT(0)	/* 1: AP owns the PLL, 0: WLBT */
+#define USBPLL_WPLL_EN		BIT(1)
+#define USBPLL_WPLL_AFC_START	BIT(2)
+#define USBPLL_WPLL_FREF_SEL	BIT(3)	/* 1: 52 MHz TCXO, 0: 26 MHz */
+#define USBPLL_RATE		20000000
+
+struct exynos7570_wpll {
+	struct clk_hw hw;
+	void __iomem *con1;
+};
+
+#define to_wpll(_hw) container_of(_hw, struct exynos7570_wpll, hw)
+
+static int exynos7570_wpll_prepare(struct clk_hw *hw)
+{
+	struct exynos7570_wpll *wpll = to_wpll(hw);
+	u32 val = readl(wpll->con1);
+
+	if ((val & (USBPLL_WPLL_SEL | USBPLL_WPLL_EN)) ==
+	    (USBPLL_WPLL_SEL | USBPLL_WPLL_EN))
+		return 0;
+
+	val &= ~USBPLL_WPLL_FREF_SEL;
+	val |= USBPLL_WPLL_EN;
+	writel(val, wpll->con1);
+	udelay(20);
+
+	val |= USBPLL_WPLL_SEL;
+	writel(val, wpll->con1);
+
+	val |= USBPLL_WPLL_AFC_START;
+	writel(val, wpll->con1);
+	usleep_range(60, 100);
+
+	return 0;
+}
+
+static int exynos7570_wpll_is_prepared(struct clk_hw *hw)
+{
+	u32 val = readl(to_wpll(hw)->con1);
+
+	return (val & (USBPLL_WPLL_SEL | USBPLL_WPLL_EN)) ==
+	       (USBPLL_WPLL_SEL | USBPLL_WPLL_EN);
+}
+
+static unsigned long exynos7570_wpll_recalc_rate(struct clk_hw *hw,
+						 unsigned long parent_rate)
+{
+	return USBPLL_RATE;
+}
+
+static const struct clk_ops exynos7570_wpll_ops = {
+	.prepare	= exynos7570_wpll_prepare,
+	.is_prepared	= exynos7570_wpll_is_prepared,
+	.recalc_rate	= exynos7570_wpll_recalc_rate,
+};
+
+static void __init exynos7570_register_wpll(struct device *dev)
+{
+	static const char *const parents[] = { "oscclk" };
+	struct clk_init_data init = {
+		.name = "fout_fsys_wpll_usb",
+		.ops = &exynos7570_wpll_ops,
+		.parent_names = parents,
+		.num_parents = 1,
+	};
+	struct exynos7570_wpll *wpll;
+	void __iomem *base;
+
+	base = of_iomap(dev->of_node, 0);
+	if (!base) {
+		dev_err(dev, "failed to map the CMU for the USB PLL\n");
+		return;
+	}
+
+	wpll = kzalloc(sizeof(*wpll), GFP_KERNEL);
+	if (!wpll) {
+		iounmap(base);
+		return;
+	}
+
+	wpll->con1 = base + USBPLL_CON1_OFFSET;
+	wpll->hw.init = &init;
+
+	if (clk_hw_register(dev, &wpll->hw)) {
+		dev_err(dev, "failed to register the USB PLL\n");
+		kfree(wpll);
+		iounmap(base);
+	}
+}
+
 static int __init exynos7570_cmu_probe(struct platform_device *pdev)
 {
 	const struct samsung_cmu_info *info;
@@ -387,6 +489,9 @@ static int __init exynos7570_cmu_probe(struct platform_device *pdev)
 
 	info = of_device_get_match_data(dev);
 	exynos_arm64_register_cmu(dev, dev->of_node, info);
+
+	if (info == &fsys_cmu_info)
+		exynos7570_register_wpll(dev);
 
 	return 0;
 }
