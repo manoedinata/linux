@@ -111,6 +111,15 @@
 	};
 };
 
+&{/} {
+	battery: battery {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion";
+		voltage-max-design-microvolt = <4350000>;
+		charge-full-design-microamp-hours = <3000000>;
+	};
+};
+
 &mmc0 {
 	/* Pins are left as S-BOOT set them up */
 	vmmc-supply = <&ldo14_reg>;
@@ -153,6 +162,8 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pmic_irq>;
+
+		monitored-battery = <&battery>;
 
 		regulators {
 			buck1_reg: BUCK1 {

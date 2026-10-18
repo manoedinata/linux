@@ -100,6 +100,8 @@ static const struct resource s2mpu06_pwrkey_res[] = {
 static const struct mfd_cell s2mpu06_cells[] = {
 	{ .name = "s2mpu06-regulator" },
 	{ .name = "s2mpu06-rtc" },
+	{ .name = "s2mpu06-charger" },
+	{ .name = "s2mpu06-fuelgauge" },
 	{
 		.name = "s2mpu06-pwrkey",
 		.num_resources = ARRAY_SIZE(s2mpu06_pwrkey_res),
@@ -131,13 +133,14 @@ static int s2mpu06_probe(struct platform_device *pdev)
 	if (IS_ERR(s2m->rtc))
 		return dev_err_probe(dev, PTR_ERR(s2m->rtc), "cannot get RTC regmap\n");
 
-	/* these only exist to acknowledge interrupts, so failing to get them is harmless */
 	s2m->chg = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_CHG);
 	if (IS_ERR(s2m->chg))
-		s2m->chg = NULL;
+		return dev_err_probe(dev, PTR_ERR(s2m->chg), "cannot get charger regmap\n");
 	s2m->fg = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_FG);
 	if (IS_ERR(s2m->fg))
-		s2m->fg = NULL;
+		return dev_err_probe(dev, PTR_ERR(s2m->fg), "cannot get fuel gauge regmap\n");
+
+	/* only used to acknowledge interrupts, so failing to get it is harmless */
 	s2m->codec = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_CODEC);
 	if (IS_ERR(s2m->codec))
 		s2m->codec = NULL;
