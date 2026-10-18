@@ -129,6 +129,26 @@
 			clocks = <&oscclk>;
 		};
 
+		speedy: speedy@10510000 {
+			compatible = "samsung,exynos7570-speedy";
+			reg = <0x10510000 0x2000>;
+			interrupts = <GIC_SPI 372 IRQ_TYPE_LEVEL_HIGH>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&speedy_bus>;
+
+			clock-names = "pclk", "clk";
+			clocks = <&cmu_mif CLK_GOUT_MIF_SPEEDY_PCLK>,
+				 <&cmu_mif CLK_GOUT_MIF_SPEEDY_CLK>;
+
+			samsung,always-interrupt-high;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
+		};
+
 		pinctrl_mif: pinctrl@10530000 {
 			compatible = "samsung,exynos7570-pinctrl";
 			reg = <0x10530000 0x1000>;
