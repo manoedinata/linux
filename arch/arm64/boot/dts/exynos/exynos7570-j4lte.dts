@@ -130,10 +130,16 @@
 	samsung,dw-mshc-ciu-div = <3>;
 	samsung,dw-mshc-sdr-timing = <0 2>;
 	samsung,dw-mshc-ddr-timing = <2 4>;
+	samsung,hs400-ulp-mode;
+	samsung,dw-mshc-hs400-timing = <0 3>;
+	samsung,dw-mshc-txdt-crc-timer-fastlimit = <0x34>;
+	samsung,dw-mshc-txdt-crc-timer-initval = <0x38>;
+	samsung,read-strobe-delay = <0x60>;
 	non-removable;
 	cap-mmc-highspeed;
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
 	no-sd;
 	no-sdio;
 
