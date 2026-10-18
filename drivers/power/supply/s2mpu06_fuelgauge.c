@@ -179,6 +179,8 @@ static int s2mpu06_fg_get_property(struct power_supply *psy, enum power_supply_p
 				   union power_supply_propval *val)
 {
 	struct s2mpu06_fuelgauge *fg = power_supply_get_drvdata(psy);
+	union power_supply_propval chg_val;
+	struct power_supply *chg;
 	int ret, soc;
 	u16 raw;
 
@@ -190,7 +192,16 @@ static int s2mpu06_fg_get_property(struct power_supply *psy, enum power_supply_p
 		val->intval = 1;
 		return 0;
 	case POWER_SUPPLY_PROP_HEALTH:
+		/* too hot or too cold is the charger's call, the rest of the pack is fine */
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
+		chg = power_supply_get_by_name("s2mpu06-charger");
+		if (chg) {
+			if (!power_supply_get_property(chg, POWER_SUPPLY_PROP_HEALTH, &chg_val) &&
+			    (chg_val.intval == POWER_SUPPLY_HEALTH_OVERHEAT ||
+			     chg_val.intval == POWER_SUPPLY_HEALTH_COLD))
+				val->intval = chg_val.intval;
+			power_supply_put(chg);
+		}
 		return 0;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
