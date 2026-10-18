@@ -683,6 +683,13 @@ config CHARGER_BQ2415X
 	  You'll need this driver to charge batteries on e.g. Nokia
 	  RX-51/N900.
 
+config CHARGER_S2MPU06
+	tristate "Samsung S2MPU06 PMIC charger and fuel gauge"
+	depends on MFD_S2MPU06
+	help
+	  Say Y here to enable support for the charger and the fuel gauge
+	  of the Samsung S2MPU06 PMIC, as found in the Galaxy J4.
+
 config CHARGER_BQ24190
 	tristate "TI BQ24190 battery charger driver"
 	depends on I2C

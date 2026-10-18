@@ -25,6 +25,10 @@ properties:
     maxItems: 1
     description: Level-low interrupt line shared by all functions of the PMIC.
 
+  monitored-battery:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: Battery described by a simple-battery node, used by the fuel gauge.
+
   regulators:
     type: object
     description: Regulator nodes named after the rails.
@@ -54,6 +58,7 @@ examples:
         reg = <0>;
         interrupt-parent = <&gpa0>;
         interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+        monitored-battery = <&battery>;
 
         regulators {
             BUCK1 {
