@@ -98,6 +98,8 @@ enum s2mpu06_temp_state {
 #define S2MPU06_USB_ICHG_UA		500000
 #define S2MPU06_DCP_IIN_UA		1000000
 #define S2MPU06_DCP_ICHG_UA		1200000
+#define S2MPU06_CDP_IIN_UA		1500000
+#define S2MPU06_CDP_ICHG_UA		1500000
 
 struct s2mpu06_charger {
 	struct device *dev;
@@ -520,7 +522,14 @@ static void s2mpu06_charger_cable_work(struct work_struct *work)
 	struct s2mpu06_charger *chg = container_of(work, struct s2mpu06_charger, cable_work);
 	int iin = S2MPU06_USB_IIN_UA, ichg = S2MPU06_USB_ICHG_UA;
 
-	if (extcon_get_state(chg->edev, EXTCON_CHG_USB_DCP) > 0) {
+	if (extcon_get_state(chg->edev, EXTCON_CHG_USB_CDP) > 0) {
+		iin = S2MPU06_CDP_IIN_UA;
+		ichg = S2MPU06_CDP_ICHG_UA;
+	} else if (extcon_get_state(chg->edev, EXTCON_CHG_USB_DCP) > 0 ||
+		   ((extcon_get_state(chg->edev, EXTCON_JIG) > 0 ||
+		     extcon_get_state(chg->edev, EXTCON_DOCK) > 0) &&
+		    extcon_get_state(chg->edev, EXTCON_CHG_USB_SDP) <= 0)) {
+		/* dedicated chargers, the UART jigs and the dock supply like a wall charger */
 		iin = S2MPU06_DCP_IIN_UA;
 		ichg = S2MPU06_DCP_ICHG_UA;
 	}
@@ -543,6 +552,10 @@ static int s2mpu06_charger_cable_event(struct notifier_block *nb, unsigned long 
 
 	return NOTIFY_OK;
 }
+
+static const unsigned int s2mpu06_charger_cables[] = {
+	EXTCON_CHG_USB_SDP, EXTCON_CHG_USB_DCP, EXTCON_CHG_USB_CDP, EXTCON_JIG, EXTCON_DOCK,
+};
 
 static void s2mpu06_charger_cancel_cable(void *data)
 {
@@ -618,9 +631,9 @@ static int s2mpu06_charger_probe(struct platform_device *pdev)
 			return ret;
 
 		chg->cable_nb.notifier_call = s2mpu06_charger_cable_event;
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < ARRAY_SIZE(s2mpu06_charger_cables); i++) {
 			ret = devm_extcon_register_notifier(dev, chg->edev,
-							    i ? EXTCON_CHG_USB_DCP : EXTCON_CHG_USB_SDP,
+							    s2mpu06_charger_cables[i],
 							    &chg->cable_nb);
 			if (ret)
 				return dev_err_probe(dev, ret, "cannot watch the cable\n");
