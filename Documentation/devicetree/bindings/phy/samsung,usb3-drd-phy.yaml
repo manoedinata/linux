@@ -24,14 +24,18 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - google,gs101-usb31drd-phy
-      - samsung,exynos5250-usbdrd-phy
-      - samsung,exynos5420-usbdrd-phy
-      - samsung,exynos5433-usbdrd-phy
-      - samsung,exynos7-usbdrd-phy
-      - samsung,exynos7870-usbdrd-phy
-      - samsung,exynos850-usbdrd-phy
+    oneOf:
+      - enum:
+          - google,gs101-usb31drd-phy
+          - samsung,exynos5250-usbdrd-phy
+          - samsung,exynos5420-usbdrd-phy
+          - samsung,exynos5433-usbdrd-phy
+          - samsung,exynos7-usbdrd-phy
+          - samsung,exynos7870-usbdrd-phy
+          - samsung,exynos850-usbdrd-phy
+      - items:
+          - const: samsung,exynos7570-usbdrd-phy
+          - const: samsung,exynos7870-usbdrd-phy
 
   clocks:
     minItems: 2
