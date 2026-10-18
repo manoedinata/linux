@@ -2,17 +2,24 @@
 /*
  * Charger of the Samsung S2MPU06 PMIC
  *
- * The charger IC runs the charging cycle on its own; this driver reports its
- * state, exposes the current and voltage limits and keeps its watchdog fed.
- * Register layout from the downstream s2mpu06_charger driver:
+ * The charger IC runs the charging cycle on its own. This driver reports its
+ * state, exposes the current and voltage limits, keeps its watchdog fed and
+ * restricts charging when the battery is too hot or too cold.
+ *
+ * Register layout and temperature profile from the downstream s2mpu06_charger
+ * driver and sec_battery configuration:
  * Copyright (C) 2015 Samsung Electronics
  */
 
+#include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/math.h>
 #include <linux/interrupt.h>
 #include <linux/mfd/samsung/s2mpu06.h>
+#include <linux/minmax.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
@@ -24,7 +31,6 @@
 
 /* charger block */
 #define S2MPU06_CHG_STATUS1		0x09
-#define S2MPU06_CHG_STATUS1_CHGVIN	BIT(2)
 #define S2MPU06_CHG_STATUS1_CHARGING	BIT(5)
 #define S2MPU06_CHG_STATUS1_CC_CV	GENMASK(6, 5)
 #define S2MPU06_CHG_STATUS2		0x0a
@@ -32,6 +38,10 @@
 #define S2MPU06_CHG_STATUS2_VINOVP	BIT(6)
 #define S2MPU06_CHG_CTRL1		0x0d	/* input current limit, 10 mA/step */
 #define S2MPU06_CHG_CTRL2		0x0e	/* float voltage */
+#define S2MPU06_CHG_CTRL3		0x0f
+#define S2MPU06_CHG_CTRL3_MODE		GENMASK(5, 4)
+#define S2MPU06_CHG_MODE_OFF		0
+#define S2MPU06_CHG_MODE_ON		1
 #define S2MPU06_CHG_CTRL10		0x16	/* fast charge current */
 #define S2MPU06_CHG_CTRL10_MASK		GENMASK(6, 0)
 #define S2MPU06_CHG_CTRL12		0x18	/* watchdog */
@@ -52,14 +62,204 @@
 #define S2MPU06_VFLOAT_MIN_UV		3600000
 #define S2MPU06_VFLOAT_STEP_UV		10000
 
-#define S2MPU06_WDT_KICK_PERIOD		msecs_to_jiffies(10000)
+#define S2MPU06_POLL_PERIOD		msecs_to_jiffies(10000)
+
+/*
+ * Temperature profile of the J4's battery in 0.1 degC, from the downstream
+ * configuration: charging stops above 50 degC and below 0 degC, and in the
+ * warm (above 41 degC) and cool (below 15 degC) bands the current and the
+ * float voltage are reduced.
+ */
+struct s2mpu06_temp_band {
+	int enter;	/* the band is entered at this temperature ... */
+	int leave;	/* ... and left again past this one (hysteresis) */
+	int ichg_ua;	/* current cap, 0 = none */
+	int vfloat_uv;	/* float voltage cap, 0 = none */
+};
+
+static const struct s2mpu06_temp_band s2mpu06_hot_block  = { 500, 450, 0, 0 };
+static const struct s2mpu06_temp_band s2mpu06_cold_block = { 0, 50, 0, 0 };
+static const struct s2mpu06_temp_band s2mpu06_warm       = { 410, 390, 1120000, 4150000 };
+static const struct s2mpu06_temp_band s2mpu06_cool       = { 150, 200, 740000, 4150000 };
+
+enum s2mpu06_temp_state {
+	S2MPU06_TEMP_NORMAL,
+	S2MPU06_TEMP_COOL,
+	S2MPU06_TEMP_WARM,
+	S2MPU06_TEMP_COLD_BLOCK,
+	S2MPU06_TEMP_HOT_BLOCK,
+};
 
 struct s2mpu06_charger {
 	struct device *dev;
 	struct s2mpu06 *s2m;
 	struct power_supply *psy;
-	struct delayed_work wdt_work;
+	struct delayed_work work;
+	struct mutex lock;	/* requested limits and the thermal state */
+
+	/* what userspace (or the bootloader) asked for, in register units */
+	unsigned int req_ichg_sel;
+	unsigned int req_iin_sel;
+	unsigned int req_vfloat_sel;
+
+	enum s2mpu06_temp_state state;
+	unsigned int mode_before_block;
 };
+
+static unsigned int s2mpu06_ichg_to_sel(int ua)
+{
+	ua = clamp(ua, S2MPU06_ICHG_MIN_UA,
+		   S2MPU06_ICHG_MIN_UA +
+		   (S2MPU06_ICHG_MAX_SEL - S2MPU06_ICHG_BASE_SEL) * S2MPU06_ICHG_STEP_UA);
+
+	return S2MPU06_ICHG_BASE_SEL + (ua - S2MPU06_ICHG_MIN_UA) / S2MPU06_ICHG_STEP_UA;
+}
+
+static int s2mpu06_sel_to_ichg(unsigned int sel)
+{
+	sel = clamp(sel, (unsigned int)S2MPU06_ICHG_BASE_SEL, (unsigned int)S2MPU06_ICHG_MAX_SEL);
+
+	return S2MPU06_ICHG_MIN_UA + (sel - S2MPU06_ICHG_BASE_SEL) * S2MPU06_ICHG_STEP_UA;
+}
+
+static unsigned int s2mpu06_vfloat_to_sel(int uv)
+{
+	uv = clamp(uv, S2MPU06_VFLOAT_MIN_UV,
+		   S2MPU06_VFLOAT_MIN_UV +
+		   (S2MPU06_VFLOAT_MAX_SEL - S2MPU06_VFLOAT_BASE_SEL) * S2MPU06_VFLOAT_STEP_UV);
+
+	return S2MPU06_VFLOAT_BASE_SEL + (uv - S2MPU06_VFLOAT_MIN_UV) / S2MPU06_VFLOAT_STEP_UV;
+}
+
+static int s2mpu06_sel_to_vfloat(unsigned int sel)
+{
+	sel = clamp(sel, (unsigned int)S2MPU06_VFLOAT_BASE_SEL, (unsigned int)S2MPU06_VFLOAT_MAX_SEL);
+
+	return S2MPU06_VFLOAT_MIN_UV + (sel - S2MPU06_VFLOAT_BASE_SEL) * S2MPU06_VFLOAT_STEP_UV;
+}
+
+/* write the requested limits, lowered to what the temperature band allows */
+static int s2mpu06_charger_apply_limits(struct s2mpu06_charger *chg)
+{
+	unsigned int ichg = chg->req_ichg_sel, vfloat = chg->req_vfloat_sel;
+	const struct s2mpu06_temp_band *band = NULL;
+	int ret;
+
+	if (chg->state == S2MPU06_TEMP_COOL)
+		band = &s2mpu06_cool;
+	else if (chg->state == S2MPU06_TEMP_WARM)
+		band = &s2mpu06_warm;
+
+	if (band) {
+		ichg = min(ichg, s2mpu06_ichg_to_sel(band->ichg_ua));
+		vfloat = min(vfloat, s2mpu06_vfloat_to_sel(band->vfloat_uv));
+	}
+
+	ret = regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL10, S2MPU06_CHG_CTRL10_MASK, ichg);
+	if (ret)
+		return ret;
+	ret = regmap_write(chg->s2m->chg, S2MPU06_CHG_CTRL2, vfloat);
+	if (ret)
+		return ret;
+
+	return regmap_write(chg->s2m->chg, S2MPU06_CHG_CTRL1, chg->req_iin_sel);
+}
+
+static int s2mpu06_charger_set_block(struct s2mpu06_charger *chg, bool block)
+{
+	unsigned int mode;
+	int ret;
+
+	ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL3, &mode);
+	if (ret)
+		return ret;
+	mode = FIELD_GET(S2MPU06_CHG_CTRL3_MODE, mode);
+
+	if (block) {
+		/* remember what to switch back to */
+		if (mode != S2MPU06_CHG_MODE_OFF)
+			chg->mode_before_block = mode;
+		mode = S2MPU06_CHG_MODE_OFF;
+	} else {
+		mode = chg->mode_before_block;
+	}
+
+	return regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL3, S2MPU06_CHG_CTRL3_MODE,
+				  FIELD_PREP(S2MPU06_CHG_CTRL3_MODE, mode));
+}
+
+static enum s2mpu06_temp_state s2mpu06_charger_next_state(enum s2mpu06_temp_state cur, int t)
+{
+	/* the blocking bands win over the reduced ones; each has its own hysteresis */
+	if (t >= s2mpu06_hot_block.enter ||
+	    (cur == S2MPU06_TEMP_HOT_BLOCK && t > s2mpu06_hot_block.leave))
+		return S2MPU06_TEMP_HOT_BLOCK;
+	if (t <= s2mpu06_cold_block.enter ||
+	    (cur == S2MPU06_TEMP_COLD_BLOCK && t < s2mpu06_cold_block.leave))
+		return S2MPU06_TEMP_COLD_BLOCK;
+	if (t >= s2mpu06_warm.enter ||
+	    (cur == S2MPU06_TEMP_WARM && t >= s2mpu06_warm.leave))
+		return S2MPU06_TEMP_WARM;
+	if (t <= s2mpu06_cool.enter ||
+	    (cur == S2MPU06_TEMP_COOL && t < s2mpu06_cool.leave))
+		return S2MPU06_TEMP_COOL;
+
+	return S2MPU06_TEMP_NORMAL;
+}
+
+/* the battery temperature comes from the fuel gauge; without it nothing changes */
+static int s2mpu06_charger_get_temp(int *temp)
+{
+	struct power_supply *fg = power_supply_get_by_name("s2mpu06-fuelgauge");
+	union power_supply_propval val;
+	int ret;
+
+	if (!fg)
+		return -ENODEV;
+
+	ret = power_supply_get_property(fg, POWER_SUPPLY_PROP_TEMP, &val);
+	power_supply_put(fg);
+	if (ret)
+		return ret;
+
+	*temp = val.intval;
+	return 0;
+}
+
+static void s2mpu06_charger_thermal(struct s2mpu06_charger *chg)
+{
+	enum s2mpu06_temp_state old, next;
+	int temp, ret = 0;
+
+	if (s2mpu06_charger_get_temp(&temp))
+		return;
+
+	mutex_lock(&chg->lock);
+	old = chg->state;
+	next = s2mpu06_charger_next_state(old, temp);
+	if (next == old)
+		goto out;
+
+	dev_info(chg->dev, "battery at %d.%d degC, charging state %d -> %d\n",
+		 temp / 10, abs(temp % 10), old, next);
+
+	/* the caps of the new band go in before charging can resume */
+	chg->state = next;
+	ret = s2mpu06_charger_apply_limits(chg);
+
+	if (!ret && next >= S2MPU06_TEMP_COLD_BLOCK && old < S2MPU06_TEMP_COLD_BLOCK)
+		ret = s2mpu06_charger_set_block(chg, true);
+	else if (!ret && next < S2MPU06_TEMP_COLD_BLOCK && old >= S2MPU06_TEMP_COLD_BLOCK)
+		ret = s2mpu06_charger_set_block(chg, false);
+
+	/* try again at the next poll */
+	if (ret)
+		chg->state = old;
+out:
+	mutex_unlock(&chg->lock);
+	if (!ret && next != old)
+		power_supply_changed(chg->psy);
+}
 
 static int s2mpu06_charger_online(struct s2mpu06_charger *chg, int *online)
 {
@@ -101,6 +301,27 @@ static int s2mpu06_charger_status(struct s2mpu06_charger *chg, int *status)
 	return 0;
 }
 
+static int s2mpu06_charger_health(struct s2mpu06_charger *chg, int *health)
+{
+	unsigned int reg;
+	int ret;
+
+	ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_STATUS2, &reg);
+	if (ret)
+		return ret;
+
+	if (reg & S2MPU06_CHG_STATUS2_VINOVP)
+		*health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+	else if (chg->state == S2MPU06_TEMP_HOT_BLOCK)
+		*health = POWER_SUPPLY_HEALTH_OVERHEAT;
+	else if (chg->state == S2MPU06_TEMP_COLD_BLOCK)
+		*health = POWER_SUPPLY_HEALTH_COLD;
+	else
+		*health = POWER_SUPPLY_HEALTH_GOOD;
+
+	return 0;
+}
+
 static int s2mpu06_charger_get_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					union power_supply_propval *val)
@@ -129,24 +350,15 @@ static int s2mpu06_charger_get_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 		return 0;
 	case POWER_SUPPLY_PROP_HEALTH:
-		ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_STATUS2, &reg);
-		if (ret)
-			return ret;
-		val->intval = (reg & S2MPU06_CHG_STATUS2_VINOVP) ?
-			POWER_SUPPLY_HEALTH_OVERVOLTAGE : POWER_SUPPLY_HEALTH_GOOD;
-		return 0;
+		return s2mpu06_charger_health(chg, &val->intval);
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 		ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL10, &reg);
 		if (ret)
 			return ret;
-		reg = clamp(reg & S2MPU06_CHG_CTRL10_MASK, (unsigned int)S2MPU06_ICHG_BASE_SEL,
-			    (unsigned int)S2MPU06_ICHG_MAX_SEL);
-		val->intval = S2MPU06_ICHG_MIN_UA +
-			      (reg - S2MPU06_ICHG_BASE_SEL) * S2MPU06_ICHG_STEP_UA;
+		val->intval = s2mpu06_sel_to_ichg(reg & S2MPU06_CHG_CTRL10_MASK);
 		return 0;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		val->intval = S2MPU06_ICHG_MIN_UA +
-			      (S2MPU06_ICHG_MAX_SEL - S2MPU06_ICHG_BASE_SEL) * S2MPU06_ICHG_STEP_UA;
+		val->intval = s2mpu06_sel_to_ichg(S2MPU06_ICHG_MAX_SEL);
 		return 0;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL1, &reg);
@@ -158,10 +370,7 @@ static int s2mpu06_charger_get_property(struct power_supply *psy,
 		ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL2, &reg);
 		if (ret)
 			return ret;
-		reg = clamp(reg, (unsigned int)S2MPU06_VFLOAT_BASE_SEL,
-			    (unsigned int)S2MPU06_VFLOAT_MAX_SEL);
-		val->intval = S2MPU06_VFLOAT_MIN_UV +
-			      (reg - S2MPU06_VFLOAT_BASE_SEL) * S2MPU06_VFLOAT_STEP_UV;
+		val->intval = s2mpu06_sel_to_vfloat(reg);
 		return 0;
 	default:
 		return -EINVAL;
@@ -173,31 +382,30 @@ static int s2mpu06_charger_set_property(struct power_supply *psy,
 					const union power_supply_propval *val)
 {
 	struct s2mpu06_charger *chg = power_supply_get_drvdata(psy);
-	unsigned int sel;
+	int ret;
 
+	mutex_lock(&chg->lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
-		sel = S2MPU06_ICHG_BASE_SEL +
-		      (clamp(val->intval, S2MPU06_ICHG_MIN_UA,
-			     S2MPU06_ICHG_MIN_UA + (S2MPU06_ICHG_MAX_SEL - S2MPU06_ICHG_BASE_SEL) *
-						   S2MPU06_ICHG_STEP_UA) -
-		       S2MPU06_ICHG_MIN_UA) / S2MPU06_ICHG_STEP_UA;
-		return regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL10,
-					  S2MPU06_CHG_CTRL10_MASK, sel);
+		chg->req_ichg_sel = s2mpu06_ichg_to_sel(val->intval);
+		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		sel = clamp(val->intval / S2MPU06_IIN_STEP_UA, S2MPU06_IIN_MIN_SEL,
-			    S2MPU06_IIN_MAX_SEL);
-		return regmap_write(chg->s2m->chg, S2MPU06_CHG_CTRL1, sel);
+		chg->req_iin_sel = clamp(val->intval / S2MPU06_IIN_STEP_UA,
+					 S2MPU06_IIN_MIN_SEL, S2MPU06_IIN_MAX_SEL);
+		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
-		sel = S2MPU06_VFLOAT_BASE_SEL +
-		      (clamp(val->intval, S2MPU06_VFLOAT_MIN_UV,
-			     S2MPU06_VFLOAT_MIN_UV + (S2MPU06_VFLOAT_MAX_SEL - S2MPU06_VFLOAT_BASE_SEL) *
-						     S2MPU06_VFLOAT_STEP_UV) -
-		       S2MPU06_VFLOAT_MIN_UV) / S2MPU06_VFLOAT_STEP_UV;
-		return regmap_write(chg->s2m->chg, S2MPU06_CHG_CTRL2, sel);
+		chg->req_vfloat_sel = s2mpu06_vfloat_to_sel(val->intval);
+		break;
 	default:
+		mutex_unlock(&chg->lock);
 		return -EINVAL;
 	}
+
+	/* a thermal cap still applies to what was just asked for */
+	ret = s2mpu06_charger_apply_limits(chg);
+	mutex_unlock(&chg->lock);
+
+	return ret;
 }
 
 static int s2mpu06_charger_property_is_writeable(struct power_supply *psy,
@@ -236,15 +444,23 @@ static const struct power_supply_desc s2mpu06_charger_desc = {
 	.property_is_writeable = s2mpu06_charger_property_is_writeable,
 };
 
-/* the charger IC drops back to its defaults when its watchdog is not cleared */
-static void s2mpu06_charger_wdt_work(struct work_struct *work)
+/* feeds the watchdog (the IC drops to its defaults otherwise) and checks the temperature */
+static void s2mpu06_charger_work(struct work_struct *work)
 {
-	struct s2mpu06_charger *chg = container_of(work, struct s2mpu06_charger, wdt_work.work);
+	struct s2mpu06_charger *chg = container_of(work, struct s2mpu06_charger, work.work);
+	unsigned int ctrl12;
 
-	regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL12, S2MPU06_CHG_CTRL12_WDT_KICK, 0x1);
-	regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL12, S2MPU06_CHG_CTRL12_WDT_KICK, 0x0);
+	if (!regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL12, &ctrl12) &&
+	    (ctrl12 & S2MPU06_CHG_CTRL12_WDT_EN)) {
+		regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL12,
+				   S2MPU06_CHG_CTRL12_WDT_KICK, 0x1);
+		regmap_update_bits(chg->s2m->chg, S2MPU06_CHG_CTRL12,
+				   S2MPU06_CHG_CTRL12_WDT_KICK, 0x0);
+	}
 
-	schedule_delayed_work(&chg->wdt_work, S2MPU06_WDT_KICK_PERIOD);
+	s2mpu06_charger_thermal(chg);
+
+	schedule_delayed_work(&chg->work, S2MPU06_POLL_PERIOD);
 }
 
 static irqreturn_t s2mpu06_charger_acok_irq(int irq, void *data)
@@ -256,7 +472,7 @@ static irqreturn_t s2mpu06_charger_acok_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void s2mpu06_charger_cancel_wdt(void *data)
+static void s2mpu06_charger_cancel_work(void *data)
 {
 	cancel_delayed_work_sync(data);
 }
@@ -275,7 +491,21 @@ static int s2mpu06_charger_probe(struct platform_device *pdev)
 
 	chg->dev = dev;
 	chg->s2m = dev_get_drvdata(dev->parent);
-	INIT_DELAYED_WORK(&chg->wdt_work, s2mpu06_charger_wdt_work);
+	chg->mode_before_block = S2MPU06_CHG_MODE_ON;
+	INIT_DELAYED_WORK(&chg->work, s2mpu06_charger_work);
+	ret = devm_mutex_init(dev, &chg->lock);
+	if (ret)
+		return ret;
+
+	/* start from what the bootloader or the previous kernel left configured */
+	ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL10, &chg->req_ichg_sel);
+	if (!ret)
+		ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL1, &chg->req_iin_sel);
+	if (!ret)
+		ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL2, &chg->req_vfloat_sel);
+	if (ret)
+		return dev_err_probe(dev, ret, "cannot read the charger\n");
+	chg->req_ichg_sel &= S2MPU06_CHG_CTRL10_MASK;
 
 	cfg.drv_data = chg;
 	cfg.supplied_to = s2mpu06_charger_supplicants;
@@ -296,19 +526,14 @@ static int s2mpu06_charger_probe(struct platform_device *pdev)
 			return dev_err_probe(dev, ret, "cannot request the AC OK irq\n");
 	}
 
-	/* only feed the watchdog if the bootloader or a previous kernel armed it */
-	ret = regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL12, &ctrl12);
-	if (ret)
-		return dev_err_probe(dev, ret, "cannot read the charger\n");
+	regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL12, &ctrl12);
 	dev_info(dev, "charger CTRL12 %#x (watchdog %s)\n", ctrl12,
 		 (ctrl12 & S2MPU06_CHG_CTRL12_WDT_EN) ? "armed" : "off");
 
-	if (ctrl12 & S2MPU06_CHG_CTRL12_WDT_EN) {
-		ret = devm_add_action_or_reset(dev, s2mpu06_charger_cancel_wdt, &chg->wdt_work);
-		if (ret)
-			return ret;
-		schedule_delayed_work(&chg->wdt_work, 0);
-	}
+	ret = devm_add_action_or_reset(dev, s2mpu06_charger_cancel_work, &chg->work);
+	if (ret)
+		return ret;
+	schedule_delayed_work(&chg->work, 0);
 
 	return 0;
 }
