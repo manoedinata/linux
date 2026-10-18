@@ -310,4 +310,5 @@
 	};
 };
 
+#include "exynos7570-pinctrl.dtsi"
 #include "arm/samsung/exynos-syscon-restart.dtsi"
