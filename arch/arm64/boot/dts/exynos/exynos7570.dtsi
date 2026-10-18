@@ -95,7 +95,8 @@
 		#size-cells = <1>;
 
 		chipid@10100000 {
-			compatible = "samsung,exynos4210-chipid";
+			compatible = "samsung,exynos7570-chipid",
+				     "samsung,exynos4210-chipid";
 			reg = <0x10100000 0x100>;
 		};
 

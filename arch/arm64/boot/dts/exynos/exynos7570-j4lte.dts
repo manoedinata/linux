@@ -42,14 +42,23 @@
 		#size-cells = <1>;
 		ranges;
 
-		/* Survives a warm reset, see mainline-tools/ramretain */
+		/*
+		 * Survives a warm reset. S-BOOT clears 0x7e280000-0x7e2fffff at
+		 * every boot, so the zones (and their ECC parity at the zone
+		 * ends) have to stay below it.
+		 */
 		ramoops@7e100000 {
 			compatible = "ramoops";
-			reg = <0x0 0x7e100000 0x200000>;
+			reg = <0x0 0x7e100000 0x180000>;
 			record-size = <0x20000>;
 			console-size = <0x100000>;
 			pmsg-size = <0x20000>;
 			ecc-size = <16>;
+			no-map;
+		};
+
+		bootloader-scratch@7e280000 {
+			reg = <0x0 0x7e280000 0x80000>;
 			no-map;
 		};
 
