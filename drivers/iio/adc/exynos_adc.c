@@ -33,6 +33,7 @@
 #define ADC_V1_CON(x)		((x) + 0x00)
 #define ADC_V1_DLY(x)		((x) + 0x08)
 #define ADC_V1_DATX(x)		((x) + 0x0C)
+#define ADC_V3_DAT(x)		((x) + 0x08)
 #define ADC_V1_DATY(x)		((x) + 0x10)
 #define ADC_V1_UPDN(x)		((x) + 0x14)
 #define ADC_V1_INTCLR(x)	((x) + 0x18)
@@ -70,6 +71,7 @@
 
 /* Bit definitions for ADC_V2 */
 #define ADC_V2_CON1_SOFT_RESET	(1u << 2)
+#define ADC_V2_CON1_SOFT_NON_RESET	(1u << 1)
 
 #define ADC_V2_CON2_OSEL	(1u << 10)
 #define ADC_V2_CON2_ESEL	(1u << 9)
@@ -127,6 +129,7 @@ struct exynos_adc_data {
 	bool needs_sclk;
 	bool needs_adc_phy;
 	int phy_offset;
+	bool dat_at_0x08;
 	u32 mask;
 
 	void (*init_hw)(struct exynos_adc *info);
@@ -397,6 +400,32 @@ static const struct exynos_adc_data exynos7_adc_data = {
 	.start_conv	= exynos_adc_v2_start_conv,
 };
 
+static void exynos_adc_exynos7570_init_hw(struct exynos_adc *info)
+{
+	u32 con2;
+
+	writel(ADC_V2_CON1_SOFT_RESET, ADC_V2_CON1(info->regs));
+	writel(ADC_V2_CON1_SOFT_NON_RESET, ADC_V2_CON1(info->regs));
+
+	con2 = ADC_V2_CON2_C_TIME(6);
+	writel(con2, ADC_V2_CON2(info->regs));
+
+	/* Enable interrupts */
+	writel(1, ADC_V2_INT_EN(info->regs));
+}
+
+static const struct exynos_adc_data exynos7570_adc_data = {
+	.num_channels	= MAX_ADC_V1_CHANNELS,
+	.mask		= ADC_DATX_MASK, /* 12 bit ADC resolution */
+	.needs_sclk	= true,
+	.dat_at_0x08	= true,
+
+	.init_hw	= exynos_adc_exynos7570_init_hw,
+	.exit_hw	= exynos_adc_v2_exit_hw,
+	.clear_irq	= exynos_adc_v2_clear_irq,
+	.start_conv	= exynos_adc_v2_start_conv,
+};
+
 static const struct of_device_id exynos_adc_match[] = {
 	{
 		.compatible = "samsung,s3c6410-adc",
@@ -419,6 +448,9 @@ static const struct of_device_id exynos_adc_match[] = {
 	}, {
 		.compatible = "samsung,exynos7-adc",
 		.data = &exynos7_adc_data,
+	}, {
+		.compatible = "samsung,exynos7570-adc",
+		.data = &exynos7570_adc_data,
 	},
 	{ }
 };
@@ -487,7 +519,10 @@ static irqreturn_t exynos_adc_isr(int irq, void *dev_id)
 	u32 mask = info->data->mask;
 
 	/* Read value */
-	info->value = readl(ADC_V1_DATX(info->regs)) & mask;
+	if (info->data->dat_at_0x08)
+		info->value = readl(ADC_V3_DAT(info->regs)) & mask;
+	else
+		info->value = readl(ADC_V1_DATX(info->regs)) & mask;
 
 	/* clear irq */
 	if (info->data->clear_irq)
