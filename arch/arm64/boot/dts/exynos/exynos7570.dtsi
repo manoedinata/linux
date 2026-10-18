@@ -131,6 +131,38 @@
 			#interrupt-cells = <3>;
 		};
 
+		mmc0: mmc@13540000 {
+			compatible = "samsung,exynos7570-dw-mshc-smu",
+				     "samsung,exynos7870-dw-mshc-smu";
+			reg = <0x13540000 0x2000>;
+			interrupts = <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
+
+			clock-names = "biu", "ciu";
+			clocks = <&cmu_fsys CLK_GOUT_FSYS_MMC_EMBD_ACLK>,
+				 <&cmu_fsys CLK_GOUT_FSYS_MMC_EMBD_SDCLKIN>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
+		};
+
+		mmc2: mmc@13560000 {
+			compatible = "samsung,exynos7570-dw-mshc",
+				     "samsung,exynos7870-dw-mshc";
+			reg = <0x13560000 0x2000>;
+			interrupts = <GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>;
+
+			clock-names = "biu", "ciu";
+			clocks = <&cmu_fsys CLK_GOUT_FSYS_MMC_CARD_ACLK>,
+				 <&cmu_fsys CLK_GOUT_FSYS_MMC_CARD_SDCLKIN>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
+		};
+
 		cmu_fsys: clock-controller@13730000 {
 			compatible = "samsung,exynos7570-cmu-fsys";
 			reg = <0x13730000 0x1000>;

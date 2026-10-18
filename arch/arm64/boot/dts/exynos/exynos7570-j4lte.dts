@@ -98,3 +98,18 @@
 		};
 	};
 };
+
+&mmc0 {
+	/* Pins and supplies are left as S-BOOT set them up */
+	bus-width = <8>;
+	fifo-depth = <64>;
+	samsung,dw-mshc-ciu-div = <3>;
+	samsung,dw-mshc-sdr-timing = <0 2>;
+	samsung,dw-mshc-ddr-timing = <2 4>;
+	non-removable;
+	mmc-ddr-1_8v;
+	no-sd;
+	no-sdio;
+
+	status = "okay";
+};
