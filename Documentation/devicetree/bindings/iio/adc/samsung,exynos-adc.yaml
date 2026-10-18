@@ -18,6 +18,7 @@ properties:
           - samsung,exynos3250-adc
           - samsung,exynos4212-adc                # Exynos4212 and Exynos4412
           - samsung,exynos7-adc
+          - samsung,exynos7570-adc
           - samsung,s3c2410-adc
           - samsung,s3c2416-adc
           - samsung,s3c2440-adc
@@ -74,7 +75,6 @@ required:
   - clock-names
   - interrupts
   - "#io-channel-cells"
-  - vdd-supply
 
 additionalProperties:
   type: object
@@ -94,11 +94,22 @@ allOf:
         - samsung,syscon-phandle
 
   - if:
+      not:
+        properties:
+          compatible:
+            contains:
+              const: samsung,exynos7570-adc
+    then:
+      required:
+        - vdd-supply
+
+  - if:
       properties:
         compatible:
           contains:
             enum:
               - samsung,exynos3250-adc
+              - samsung,exynos7570-adc
     then:
       properties:
         clocks:
