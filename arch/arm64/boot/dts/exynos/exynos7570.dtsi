@@ -149,6 +149,18 @@
 			status = "disabled";
 		};
 
+		adc: adc@10550000 {
+			compatible = "samsung,exynos7570-adc";
+			reg = <0x10550000 0x1000>;
+			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;
+
+			clock-names = "adc", "sclk";
+			clocks = <&cmu_mif CLK_GOUT_MIF_ADC_PCLK_S0>,
+				 <&cmu_mif CLK_GOUT_MIF_ADC_OSC_SYS>;
+
+			#io-channel-cells = <1>;
+		};
+
 		pinctrl_mif: pinctrl@10530000 {
 			compatible = "samsung,exynos7570-pinctrl";
 			reg = <0x10530000 0x1000>;
