@@ -1422,6 +1422,16 @@ config MFD_SEC_CORE
 	select MFD_CORE
 	select REGMAP_IRQ
 
+config MFD_S2MPU06
+	tristate "Samsung S2MPU06 PMIC on a SPEEDY bus"
+	depends on EXYNOS_SPEEDY
+	select MFD_CORE
+	select REGMAP_IRQ
+	help
+	  Support for the Samsung S2MPU06 PMIC found with the Exynos7570. This
+	  provides the interrupt controller and the sub-device cells (regulators,
+	  power key) of the PMIC.
+
 config MFD_SEC_ACPM
 	tristate "Samsung Electronics S2MPG1x PMICs"
 	depends on EXYNOS_ACPM_PROTOCOL
