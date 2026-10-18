@@ -255,3 +255,17 @@
 		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
 	};
 };
+
+&pinctrl_touch {
+	i2c_tsp_bus: i2c-tsp-bus-pins {
+		samsung,pins = "gpc3-1", "gpc3-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	tsp_irq: tsp-irq-pins {
+		samsung,pins = "gpc3-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+};

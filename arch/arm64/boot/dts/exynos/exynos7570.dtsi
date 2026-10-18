@@ -161,6 +161,23 @@
 			#io-channel-cells = <1>;
 		};
 
+		i2c_tsp: i2c@13840000 {
+			compatible = "samsung,exynos7570-i2c", "samsung,s3c2440-i2c";
+			reg = <0x13840000 0x100>;
+			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c_tsp_bus>;
+
+			clock-names = "i2c";
+			clocks = <&cmu_peri CLK_GOUT_PERI_I2C_TSP_PCLK>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
+		};
+
 		i2c_muic: i2c@13880000 {
 			compatible = "samsung,exynos7570-i2c", "samsung,s3c2440-i2c";
 			reg = <0x13880000 0x100>;

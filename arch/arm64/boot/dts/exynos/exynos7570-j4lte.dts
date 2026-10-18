@@ -6,6 +6,7 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
 #include "exynos7570.dtsi"
 
 / {
@@ -433,5 +434,20 @@
 		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&muic_irq>;
+	};
+};
+
+&i2c_tsp {
+	status = "okay";
+
+	touchscreen@48 {
+		compatible = "melfas,mip4_ts";
+		reg = <0x48>;
+		interrupt-parent = <&gpc3>;
+		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+		/* switches the 3.3 V supply of the controller */
+		ce-gpios = <&gpc2 3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tsp_irq>;
 	};
 };
