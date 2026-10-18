@@ -37,6 +37,15 @@ config EXYNOS_USI
 	  This driver allows one to configure USI for desired protocol, which
 	  is usually done in USI node in Device Tree.
 
+config EXYNOS_SPEEDY
+	tristate "Exynos SPEEDY (one-wire PMIC bus) controller driver"
+	depends on ARCH_EXYNOS || COMPILE_TEST
+	select REGMAP
+	help
+	  Support for the SPEEDY master found in Exynos SoCs like the
+	  Exynos7570, which connects the AP to its PMIC. The slave blocks
+	  are exposed as regmaps to the PMIC drivers.
+
 config EXYNOS_PMU
 	bool "Exynos PMU controller driver" if COMPILE_TEST
 	depends on ARCH_EXYNOS || ((ARM || ARM64) && COMPILE_TEST)
