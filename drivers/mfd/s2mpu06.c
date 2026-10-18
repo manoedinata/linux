@@ -99,6 +99,7 @@ static const struct resource s2mpu06_pwrkey_res[] = {
 
 static const struct mfd_cell s2mpu06_cells[] = {
 	{ .name = "s2mpu06-regulator" },
+	{ .name = "s2mpu06-rtc" },
 	{
 		.name = "s2mpu06-pwrkey",
 		.num_resources = ARRAY_SIZE(s2mpu06_pwrkey_res),
@@ -125,6 +126,10 @@ static int s2mpu06_probe(struct platform_device *pdev)
 	s2m->pmic = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_PMIC);
 	if (IS_ERR(s2m->pmic))
 		return dev_err_probe(dev, PTR_ERR(s2m->pmic), "cannot get PMIC regmap\n");
+
+	s2m->rtc = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_RTC);
+	if (IS_ERR(s2m->rtc))
+		return dev_err_probe(dev, PTR_ERR(s2m->rtc), "cannot get RTC regmap\n");
 
 	/* these only exist to acknowledge interrupts, so failing to get them is harmless */
 	s2m->chg = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_CHG);
