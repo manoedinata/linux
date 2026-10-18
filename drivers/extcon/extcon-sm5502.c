@@ -131,6 +131,9 @@ static const unsigned int sm5502_extcon_cable[] = {
 	EXTCON_USB_HOST,
 	EXTCON_CHG_USB_SDP,
 	EXTCON_CHG_USB_DCP,
+	EXTCON_CHG_USB_CDP,
+	EXTCON_JIG,
+	EXTCON_DOCK,
 	EXTCON_NONE,
 };
 
@@ -182,6 +185,7 @@ enum sm5502_muic_acc_type {
 	SM5502_MUIC_ADC_OPEN_USB = 0x5f,		/* |      010|11111| */
 	SM5502_MUIC_ADC_OPEN_TA = 0xdf,			/* |      110|11111| */
 	SM5502_MUIC_ADC_OPEN_USB_OTG = 0xff,		/* |      111|11111| */
+	SM5502_MUIC_ADC_OPEN_CDP = 0x3f,		/* |      001|11111| */
 };
 
 /* List of supported interrupt for SM5502 */
@@ -450,6 +454,9 @@ static unsigned int sm5502_muic_get_cable_type(struct sm5502_muic_info *info)
 		case SM5502_REG_DEV_TYPE1_DEDICATED_CHG_MASK:
 			cable_type = SM5502_MUIC_ADC_OPEN_TA;
 			break;
+		case SM5502_REG_DEV_TYPE1_USB_CHG_MASK:
+			cable_type = SM5502_MUIC_ADC_OPEN_CDP;
+			break;
 		default:
 			dev_dbg(info->dev,
 				"cannot identify the cable type: adc(0x%x)\n",
@@ -466,15 +473,51 @@ static unsigned int sm5502_muic_get_cable_type(struct sm5502_muic_info *info)
 	return cable_type;
 }
 
+/* What each recognised cable reports to the consumers and how the switches are set for it */
+struct sm5502_cable {
+	unsigned int type;
+	unsigned int ids[3];	/* EXTCON_NONE terminates */
+	unsigned int con_sw;
+	unsigned int vbus_sw;
+};
+
+static const struct sm5502_cable sm5502_cables[] = {
+	/* a PC port: data to the AP, and the charger limited to 500 mA */
+	{ SM5502_MUIC_ADC_OPEN_USB, { EXTCON_USB, EXTCON_CHG_USB_SDP },
+	  DM_DP_SWITCH_USB, VBUSIN_SWITCH_VBUSOUT_WITH_USB },
+	/* a wall charger, also the 442k type 2 charger */
+	{ SM5502_MUIC_ADC_OPEN_TA, { EXTCON_CHG_USB_DCP },
+	  DM_DP_SWITCH_OPEN, VBUSIN_SWITCH_VBUSOUT },
+	{ SM5502_MUIC_ADC_TYPE2_CHARGER, { EXTCON_CHG_USB_DCP },
+	  DM_DP_SWITCH_OPEN, VBUSIN_SWITCH_VBUSOUT },
+	/* a charging downstream port: data as well as more current */
+	{ SM5502_MUIC_ADC_OPEN_CDP, { EXTCON_USB, EXTCON_CHG_USB_CDP },
+	  DM_DP_SWITCH_USB, VBUSIN_SWITCH_VBUSOUT_WITH_USB },
+	{ SM5502_MUIC_ADC_GROUND_USB_OTG, { EXTCON_USB_HOST },
+	  DM_DP_SWITCH_USB, VBUSIN_SWITCH_OPEN },
+	{ SM5502_MUIC_ADC_OPEN_USB_OTG, { EXTCON_USB_HOST },
+	  DM_DP_SWITCH_USB, VBUSIN_SWITCH_OPEN },
+	/* factory jigs: the USB ones give data, the UART ones route D+/D- to the AP's UART */
+	{ SM5502_MUIC_ADC_FACTORY_MODE_BOOT_OFF_USB, { EXTCON_JIG, EXTCON_USB, EXTCON_CHG_USB_SDP },
+	  DM_DP_SWITCH_USB, VBUSIN_SWITCH_VBUSOUT_WITH_USB },
+	{ SM5502_MUIC_ADC_FACTORY_MODE_BOOT_ON_USB, { EXTCON_JIG, EXTCON_USB, EXTCON_CHG_USB_SDP },
+	  DM_DP_SWITCH_USB, VBUSIN_SWITCH_VBUSOUT_WITH_USB },
+	{ SM5502_MUIC_ADC_FACTORY_MODE_BOOT_OFF_UART, { EXTCON_JIG },
+	  DM_DP_SWITCH_UART, VBUSIN_SWITCH_VBUSOUT },
+	{ SM5502_MUIC_ADC_FACTORY_MODE_BOOT_ON_UART, { EXTCON_JIG },
+	  DM_DP_SWITCH_UART, VBUSIN_SWITCH_VBUSOUT },
+	/* the desk dock: audio/video cable, charged through its VBUS */
+	{ SM5502_MUIC_ADC_AUDIO_VIDEO_CABLE, { EXTCON_DOCK },
+	  DM_DP_SWITCH_OPEN, VBUSIN_SWITCH_VBUSOUT },
+};
+
 static int sm5502_muic_cable_handler(struct sm5502_muic_info *info,
 				     bool attached)
 {
 	static unsigned int prev_cable_type = SM5502_MUIC_ADC_GROUND;
+	const struct sm5502_cable *cable = NULL;
 	unsigned int cable_type = SM5502_MUIC_ADC_GROUND;
-	unsigned int con_sw = DM_DP_SWITCH_OPEN;
-	unsigned int vbus_sw = VBUSIN_SWITCH_OPEN;
-	unsigned int id;
-	int ret;
+	int i, ret;
 
 	/* Get the type of attached or detached cable */
 	if (attached)
@@ -483,39 +526,25 @@ static int sm5502_muic_cable_handler(struct sm5502_muic_info *info,
 		cable_type = prev_cable_type;
 	prev_cable_type = cable_type;
 
-	switch (cable_type) {
-	case SM5502_MUIC_ADC_OPEN_USB:
-		id	= EXTCON_USB;
-		con_sw	= DM_DP_SWITCH_USB;
-		vbus_sw	= VBUSIN_SWITCH_VBUSOUT_WITH_USB;
-		break;
-	case SM5502_MUIC_ADC_OPEN_TA:
-		id	= EXTCON_CHG_USB_DCP;
-		con_sw	= DM_DP_SWITCH_OPEN;
-		vbus_sw	= VBUSIN_SWITCH_VBUSOUT;
-		break;
-	case SM5502_MUIC_ADC_GROUND_USB_OTG:
-	case SM5502_MUIC_ADC_OPEN_USB_OTG:
-		id	= EXTCON_USB_HOST;
-		con_sw	= DM_DP_SWITCH_USB;
-		vbus_sw	= VBUSIN_SWITCH_OPEN;
-		break;
-	default:
-		dev_dbg(info->dev,
-			"cannot handle this cable_type (0x%x)\n", cable_type);
+	for (i = 0; i < ARRAY_SIZE(sm5502_cables); i++) {
+		if (sm5502_cables[i].type == cable_type) {
+			cable = &sm5502_cables[i];
+			break;
+		}
+	}
+	if (!cable) {
+		dev_dbg(info->dev, "cannot handle this cable_type (0x%x)\n", cable_type);
 		return 0;
 	}
 
 	/* Change internal hardware path(DM_CON/DP_CON, VBUSIN) */
-	ret = sm5502_muic_set_path(info, con_sw, vbus_sw, attached);
+	ret = sm5502_muic_set_path(info, cable->con_sw, cable->vbus_sw, attached);
 	if (ret < 0)
 		return ret;
 
 	/* Change the state of external accessory */
-	extcon_set_state_sync(info->edev, id, attached);
-	if (id == EXTCON_USB)
-		extcon_set_state_sync(info->edev, EXTCON_CHG_USB_SDP,
-					attached);
+	for (i = 0; i < ARRAY_SIZE(cable->ids) && cable->ids[i]; i++)
+		extcon_set_state_sync(info->edev, cable->ids[i], attached);
 
 	return 0;
 }
