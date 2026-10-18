@@ -19,7 +19,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused j4.autoreboot=45";
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused";
 
 		/* Set up by the bootloader (uniLoader), scanned out by DECON */
 		framebuffer0: framebuffer@67000000 {
