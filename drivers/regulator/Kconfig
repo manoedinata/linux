@@ -1340,7 +1340,7 @@ config REGULATOR_S2MPS11
 
 config REGULATOR_S2MPU06
 	tristate "Samsung S2MPU06 voltage regulator"
-	depends on EXYNOS_SPEEDY
+	depends on MFD_S2MPU06
 	help
 	  This driver supports the voltage regulators of the Samsung
 	  S2MPU06 PMIC, which sits on the SPEEDY bus of Exynos7570.

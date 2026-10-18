@@ -7,6 +7,7 @@
  */
 
 #include <linux/bits.h>
+#include <linux/mfd/samsung/s2mpu06.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -14,13 +15,6 @@
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
-#include <linux/soc/samsung/exynos-speedy.h>
-
-/* SPEEDY block ids */
-#define S2MPU06_BLK_TOP			0
-#define S2MPU06_BLK_PMIC		1
-
-#define S2MPU06_TOP_PMICID		0x00
 
 #define S2MPU06_REG_B1CTRL		0x13
 #define S2MPU06_REG_B1OUT2		0x15
@@ -164,31 +158,20 @@ static const struct regulator_desc s2mpu06_regulators[] = {
 static int s2mpu06_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct s2mpu06 *s2m = dev_get_drvdata(dev->parent);
 	struct regulator_config config = { };
 	struct device_node *regs_np;
-	struct regmap *top, *pmic;
-	unsigned int id;
 	int i, ret;
 
-	top = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_TOP);
-	if (IS_ERR(top))
-		return dev_err_probe(dev, PTR_ERR(top), "cannot get TOP regmap\n");
-
-	pmic = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_PMIC);
-	if (IS_ERR(pmic))
-		return dev_err_probe(dev, PTR_ERR(pmic), "cannot get PMIC regmap\n");
-
-	ret = regmap_read(top, S2MPU06_TOP_PMICID, &id);
-	if (ret)
-		return dev_err_probe(dev, ret, "cannot read the PMIC id\n");
-	dev_info(dev, "S2MPU06 PMIC id %#x\n", id);
+	/* the regulators node lives under the PMIC node */
+	device_set_of_node_from_dev(dev, dev->parent);
 
 	regs_np = of_get_child_by_name(dev->of_node, "regulators");
 	if (!regs_np)
 		return dev_err_probe(dev, -EINVAL, "no regulators node\n");
 
 	config.dev = dev;
-	config.regmap = pmic;
+	config.regmap = s2m->pmic;
 
 	for (i = 0; i < ARRAY_SIZE(s2mpu06_regulators); i++) {
 		struct device_node *np;
@@ -213,20 +196,20 @@ static int s2mpu06_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id s2mpu06_of_match[] = {
-	{ .compatible = "samsung,s2mpu06-pmic" },
+static const struct platform_device_id s2mpu06_regulator_id[] = {
+	{ "s2mpu06-regulator" },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, s2mpu06_of_match);
+MODULE_DEVICE_TABLE(platform, s2mpu06_regulator_id);
 
-static struct platform_driver s2mpu06_driver = {
+static struct platform_driver s2mpu06_regulator_driver = {
 	.probe = s2mpu06_probe,
 	.driver = {
 		.name = "s2mpu06-regulator",
-		.of_match_table = s2mpu06_of_match,
 	},
+	.id_table = s2mpu06_regulator_id,
 };
-module_platform_driver(s2mpu06_driver);
+module_platform_driver(s2mpu06_regulator_driver);
 
 MODULE_DESCRIPTION("Samsung S2MPU06 regulator driver");
 MODULE_LICENSE("GPL");

@@ -4,15 +4,15 @@
 $id: http://devicetree.org/schemas/regulator/samsung,s2mpu06-pmic.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Samsung S2MPU06 PMIC regulators
+title: Samsung S2MPU06 PMIC
 
 maintainers:
   - Hendra Manudinata <manoedinata@gmail.com>
 
 description:
-  The S2MPU06 is a PMIC with three bucks and twenty LDOs, reached over
-  the SPEEDY bus of the Exynos7570. Regulators not listed in the
-  regulators node are left as the bootloader configured them.
+  The S2MPU06 is a PMIC with three bucks and twenty LDOs, a power key and
+  more, reached over the SPEEDY bus of the Exynos7570. Regulators not
+  listed in the regulators node are left as the bootloader configured them.
 
 properties:
   compatible:
@@ -20,6 +20,10 @@ properties:
 
   reg:
     maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: Level-low interrupt line shared by all functions of the PMIC.
 
   regulators:
     type: object
@@ -36,15 +40,20 @@ properties:
 required:
   - compatible
   - reg
+  - interrupts
   - regulators
 
 additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
     pmic@0 {
         compatible = "samsung,s2mpu06-pmic";
         reg = <0>;
+        interrupt-parent = <&gpa0>;
+        interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
 
         regulators {
             BUCK1 {

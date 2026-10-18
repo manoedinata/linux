@@ -122,6 +122,14 @@
 	};
 };
 
+&pinctrl_alive {
+	pmic_irq: pmic-irq-pins {
+		samsung,pins = "gpa0-5";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
+};
+
 &pinctrl_mif {
 	gpm0: gpm0-gpio-bank {
 		gpio-controller;

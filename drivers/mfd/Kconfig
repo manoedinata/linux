@@ -1314,6 +1314,16 @@ config MFD_RN5T618
 	  additional drivers must be enabled in order to use the
 	  functionality of the device.
 
+config MFD_S2MPU06
+	tristate "Samsung S2MPU06 PMIC on a SPEEDY bus"
+	depends on EXYNOS_SPEEDY
+	select MFD_CORE
+	select REGMAP_IRQ
+	help
+	  Support for the Samsung S2MPU06 PMIC found with the Exynos7570. This
+	  provides the interrupt controller and the sub-device cells (regulators,
+	  power key) of the PMIC.
+
 config MFD_SEC_CORE
 	tristate "Samsung Electronics PMIC Series Support"
 	depends on I2C=y

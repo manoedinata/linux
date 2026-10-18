@@ -239,6 +239,12 @@ config INPUT_MAX77650_ONKEY
 	  To compile this driver as a module, choose M here: the module
 	  will be called max77650-onkey.
 
+config INPUT_S2MPU06_PWRKEY
+	tristate "Samsung S2MPU06 PMIC power key support"
+	depends on MFD_S2MPU06
+	help
+	  Say Y here to support the power key of the Samsung S2MPU06 PMIC.
+
 config INPUT_MAX77693_HAPTIC
 	tristate "MAXIM MAX77693/MAX77843 haptic controller support"
 	depends on (MFD_MAX77693 || MFD_MAX77843) && PWM

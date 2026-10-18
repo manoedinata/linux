@@ -63,6 +63,7 @@ examples:
   - |
     #include <dt-bindings/clock/samsung,exynos7570-cmu.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
 
     bus@10510000 {
         compatible = "samsung,exynos7570-speedy";
@@ -78,6 +79,8 @@ examples:
         pmic@0 {
             compatible = "samsung,s2mpu06-pmic";
             reg = <0>;
+            interrupt-parent = <&gpa0>;
+            interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
 
             regulators {
                 LDO1 {
