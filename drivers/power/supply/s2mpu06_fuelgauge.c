@@ -12,6 +12,7 @@
  */
 
 #include <linux/bits.h>
+#include <linux/crc8.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/iio/consumer.h>
@@ -19,6 +20,7 @@
 #include <linux/mfd/samsung/s2mpu06.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
@@ -46,6 +48,17 @@
 #define S2MPU06_FG_OFFSET_0		0x2f	/* 20-bit offset in 0x2f..0x31 */
 #define S2MPU06_FG_CELL_CHAR0		0x34	/* 164 bytes */
 #define S2MPU06_FG_CELL_CHAR0_LEN	164
+
+/*
+ * The charge cycle counter lives in 5 bytes of battery-backed NVMEM (the RTC's
+ * spare alarm registers): 24 bits of centicycles, a magic byte and a CRC-8.
+ * One cycle is a drop of the state of charge by 100 %, however it is spread.
+ */
+#define S2MPU06_FG_CYCLE_BYTES		5
+#define S2MPU06_FG_CYCLE_MAGIC		0xc7
+#define S2MPU06_FG_CYCLE_MAX		0xffffff
+#define S2MPU06_FG_CYCLE_DEADBAND	50	/* 0.5 %, so that jitter does not count */
+#define S2MPU06_FG_CRC8_POLY		0x07
 
 #define S2MPU06_FG_NEG			BIT(15)
 #define S2MPU06_FG_RETRIES		10
@@ -106,8 +119,13 @@ struct s2mpu06_fuelgauge {
 	u32 *age_raw100_mv;
 	u8 *cell_char0;
 	u8 *cell_char1;
-	int cycle_count;	/* -1 until userspace tells */
+	struct nvmem_device *nvmem;
+	u32 centicycles;
+	u32 cycle_acc;		/* SoC drop not yet worth a centicycle, in 0.01 % */
+	int cycle_ref;		/* SoC the next drop is measured from, in 0.01 % */
+	int cycle_count;	/* whole cycles, -1 when the counter is not available */
 	int want_step;
+	bool step_applied;	/* the step's float voltage has reached the charger */
 	int data_ver;
 };
 
@@ -244,6 +262,93 @@ static void s2mpu06_fg_update_temp(struct s2mpu06_fuelgauge *fg)
 		fg->temp_bucket = bucket;
 }
 
+/* ------------------------------------------------------------ cycle count */
+
+static void s2mpu06_fg_select_step(struct s2mpu06_fuelgauge *fg);
+
+DECLARE_CRC8_TABLE(s2mpu06_fg_crc8_table);
+
+static void s2mpu06_fg_cycle_encode(u32 centicycles, u8 *buf)
+{
+	buf[0] = centicycles;
+	buf[1] = centicycles >> 8;
+	buf[2] = centicycles >> 16;
+	buf[3] = S2MPU06_FG_CYCLE_MAGIC;
+	buf[4] = crc8(s2mpu06_fg_crc8_table, buf, 4, CRC8_INIT_VALUE);
+}
+
+static bool s2mpu06_fg_cycle_decode(const u8 *buf, u32 *centicycles)
+{
+	if (buf[3] != S2MPU06_FG_CYCLE_MAGIC ||
+	    buf[4] != crc8(s2mpu06_fg_crc8_table, buf, 4, CRC8_INIT_VALUE))
+		return false;
+
+	*centicycles = buf[0] | buf[1] << 8 | buf[2] << 16;
+	return true;
+}
+
+static int s2mpu06_fg_cycle_save(struct s2mpu06_fuelgauge *fg)
+{
+	u8 buf[S2MPU06_FG_CYCLE_BYTES];
+
+	s2mpu06_fg_cycle_encode(fg->centicycles, buf);
+	return nvmem_device_write(fg->nvmem, 0, sizeof(buf), buf) == sizeof(buf) ? 0 : -EIO;
+}
+
+static void s2mpu06_fg_cycle_load(struct s2mpu06_fuelgauge *fg)
+{
+	u8 buf[S2MPU06_FG_CYCLE_BYTES];
+
+	if (nvmem_device_read(fg->nvmem, 0, sizeof(buf), buf) != sizeof(buf)) {
+		fg->nvmem = NULL;
+		return;
+	}
+
+	if (!s2mpu06_fg_cycle_decode(buf, &fg->centicycles)) {
+		/* never written, or the backup power was lost: start counting from scratch */
+		dev_info(fg->dev, "no valid cycle count stored, starting at 0\n");
+		fg->centicycles = 0;
+		if (s2mpu06_fg_cycle_save(fg))
+			fg->nvmem = NULL;
+	}
+	fg->cycle_count = fg->centicycles / 100;
+}
+
+/* only drops of the state of charge count, and only once they are bigger than jitter */
+static void s2mpu06_fg_count_cycles(struct s2mpu06_fuelgauge *fg, int soc)
+{
+	u32 centi;
+
+	if (!fg->nvmem)
+		return;
+
+	if (soc >= fg->cycle_ref) {
+		fg->cycle_ref = soc;
+		return;
+	}
+	if (fg->cycle_ref - soc < S2MPU06_FG_CYCLE_DEADBAND)
+		return;
+
+	fg->cycle_acc += fg->cycle_ref - soc;
+	fg->cycle_ref = soc;
+
+	centi = fg->cycle_acc / 100;	/* 100 = one centicycle in 0.01 % */
+	if (!centi)
+		return;
+	fg->cycle_acc -= centi * 100;
+	fg->centicycles = min(fg->centicycles + centi, (u32)S2MPU06_FG_CYCLE_MAX);
+
+	if (s2mpu06_fg_cycle_save(fg)) {
+		dev_warn(fg->dev, "cannot store the cycle count\n");
+		return;
+	}
+
+	if (fg->centicycles / 100 != fg->cycle_count) {
+		fg->cycle_count = fg->centicycles / 100;
+		s2mpu06_fg_select_step(fg);
+	}
+}
+
 /* -------------------------------------------------------- capacity policy */
 
 static struct power_supply *s2mpu06_fg_charger(void)
@@ -289,6 +394,7 @@ static void s2mpu06_fg_update_capacity(struct s2mpu06_fuelgauge *fg)
 
 	if (s2mpu06_fg_read_rawsoc(fg, &raw))
 		return;
+	s2mpu06_fg_count_cycles(fg, raw);
 	raw = min(raw / 10, S2MPU06_FG_CAPACITY_FULL);
 
 	scaled = raw * S2MPU06_FG_CAPACITY_FULL / fg->capacity_max;
@@ -514,17 +620,20 @@ static void s2mpu06_fg_select_step(struct s2mpu06_fuelgauge *fg)
 		if (fg->age_cycle[step] <= fg->cycle_count)
 			break;
 
-	if (step == fg->want_step)
+	if (step == fg->want_step && fg->step_applied)
 		return;
 
+	if (step != fg->want_step)
+		dev_info(fg->dev, "ageing step %d for %d cycles, float voltage %u uV\n", step,
+			 fg->cycle_count, fg->age_float_uv[step]);
 	fg->want_step = step;
-	dev_info(fg->dev, "ageing step %d for %d cycles, float voltage %u uV\n", step,
-		 fg->cycle_count, fg->age_float_uv[step]);
 
+	/* the charger may not be there yet; the poll tries again */
 	chg = s2mpu06_fg_charger();
 	if (chg) {
 		val.intval = fg->age_float_uv[step];
-		power_supply_set_property(chg, POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, &val);
+		fg->step_applied = !power_supply_set_property(chg,
+						POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, &val);
 		power_supply_put(chg);
 	}
 }
@@ -561,6 +670,7 @@ static void s2mpu06_fg_work(struct work_struct *work)
 		s2mpu06_fg_aging_check(fg);
 	}
 	fg->charger_status = status;
+	s2mpu06_fg_select_step(fg);
 
 	if (!s2mpu06_fg_read_current_ma(fg, &ma)) {
 		fg->cur_hist[fg->cur_idx] = ma;
@@ -737,15 +847,6 @@ static int s2mpu06_fg_set_property(struct power_supply *psy, enum power_supply_p
 		fg->fuel_alert_soc = val->intval;
 		ret = s2mpu06_fg_program_alert(fg);
 		break;
-	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		if (val->intval < 0) {
-			ret = -EINVAL;
-			break;
-		}
-		/* the cycle count has to be kept by userspace and written at every boot */
-		fg->cycle_count = val->intval;
-		s2mpu06_fg_select_step(fg);
-		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -756,7 +857,7 @@ static int s2mpu06_fg_set_property(struct power_supply *psy, enum power_supply_p
 
 static int s2mpu06_fg_property_is_writeable(struct power_supply *psy, enum power_supply_property psp)
 {
-	return psp == POWER_SUPPLY_PROP_CAPACITY_ALERT_MIN || psp == POWER_SUPPLY_PROP_CYCLE_COUNT;
+	return psp == POWER_SUPPLY_PROP_CAPACITY_ALERT_MIN;
 }
 
 static const enum power_supply_property s2mpu06_fg_props[] = {
@@ -935,6 +1036,20 @@ static int s2mpu06_fg_probe(struct platform_device *pdev)
 	ret = s2mpu06_fg_init_aging(fg);
 	if (ret)
 		return dev_err_probe(dev, ret, "cannot read the ageing tables\n");
+
+	crc8_populate_msb(s2mpu06_fg_crc8_table, S2MPU06_FG_CRC8_POLY);
+	fg->nvmem = devm_nvmem_device_get(dev, "s2mpu06-scratch");
+	if (IS_ERR(fg->nvmem)) {
+		ret = PTR_ERR(fg->nvmem);
+		fg->nvmem = NULL;
+		if (ret == -EPROBE_DEFER)
+			return ret;
+		dev_warn(dev, "no storage for the cycle count (%d), ageing stays off\n", ret);
+	} else {
+		s2mpu06_fg_cycle_load(fg);
+		/* the first poll sets the reference, drops are counted from then on */
+		fg->cycle_ref = 0;
+	}
 
 	/* the data version in the gauge has to survive a reset */
 	if (!regmap_read(fg->s2m->fg, S2MPU06_FG_CTRL, &ctrl))

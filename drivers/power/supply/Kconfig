@@ -781,6 +781,8 @@ config CHARGER_BQ2415X
 config CHARGER_S2MPU06
 	tristate "Samsung S2MPU06 PMIC charger and fuel gauge"
 	depends on MFD_S2MPU06
+	select CRC8
+	select NVMEM
 	help
 	  Say Y here to enable support for the charger and the fuel gauge
 	  of the Samsung S2MPU06 PMIC, as found in the Galaxy J4.

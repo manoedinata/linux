@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/mfd/samsung/s2mpu06.h>
 #include <linux/module.h>
+#include <linux/nvmem-provider.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -23,6 +24,7 @@
 #define S2MPU06_RTC_CAPSEL		0x03
 #define S2MPU06_RTC_TIME		0x04	/* sec, min, hour, weekday, date, month, year */
 #define S2MPU06_RTC_ALARM0		0x0b	/* same layout as the time */
+#define S2MPU06_RTC_ALARM1		0x12	/* same layout as the time */
 
 #define S2MPU06_RTC_CTRL_24H		BIT(1)
 #define S2MPU06_RTC_CAPSEL_VAL		0xf8
@@ -40,6 +42,15 @@
 /* STATUS2 in the PMIC block */
 #define S2MPU06_PMIC_STATUS2		0x07
 #define S2MPU06_STATUS2_RTCA0E		BIT(2)
+
+/*
+ * Alarm 1 is not used by anything, and its registers keep what is written to
+ * them. With the alarm enable bit (bit 7) of every register left clear they
+ * give 46 bits of battery-backed storage, which are offered as a small NVMEM
+ * device. Not every bit of a register is implemented.
+ */
+#define S2MPU06_RTC_SCRATCH_BYTES	5
+static const u8 s2mpu06_rtc_scratch_width[] = { 7, 7, 7, 7, 6, 5, 7 };
 
 enum {
 	RTC_SEC,
@@ -236,6 +247,99 @@ static const struct rtc_class_ops s2mpu06_rtc_ops = {
 	.alarm_irq_enable	= s2mpu06_rtc_alarm_irq_enable,
 };
 
+static int s2mpu06_rtc_scratch_load(struct s2mpu06_rtc *info, u64 *val)
+{
+	u8 raw[RTC_NR_REGS];
+	int i, shift = 0, ret;
+
+	ret = s2mpu06_rtc_update(info, S2MPU06_RTC_UPDATE_RUDR);
+	if (!ret)
+		ret = regmap_bulk_read(info->s2m->rtc, S2MPU06_RTC_ALARM1, raw, RTC_NR_REGS);
+	if (ret)
+		return ret;
+
+	*val = 0;
+	for (i = 0; i < RTC_NR_REGS; i++) {
+		*val |= (u64)(raw[i] & GENMASK(s2mpu06_rtc_scratch_width[i] - 1, 0)) << shift;
+		shift += s2mpu06_rtc_scratch_width[i];
+	}
+
+	return 0;
+}
+
+static int s2mpu06_rtc_scratch_store(struct s2mpu06_rtc *info, u64 val)
+{
+	u8 raw[RTC_NR_REGS];
+	int i, ret;
+
+	for (i = 0; i < RTC_NR_REGS; i++) {
+		raw[i] = val & GENMASK(s2mpu06_rtc_scratch_width[i] - 1, 0);
+		val >>= s2mpu06_rtc_scratch_width[i];
+	}
+
+	ret = regmap_bulk_write(info->s2m->rtc, S2MPU06_RTC_ALARM1, raw, RTC_NR_REGS);
+	if (ret)
+		return ret;
+
+	return s2mpu06_rtc_update(info, S2MPU06_RTC_UPDATE_AUDR);
+}
+
+static int s2mpu06_rtc_nvmem_read(void *priv, unsigned int offset, void *buf, size_t bytes)
+{
+	struct s2mpu06_rtc *info = priv;
+	__le64 le;
+	u64 val;
+	int ret;
+
+	mutex_lock(&info->lock);
+	ret = s2mpu06_rtc_scratch_load(info, &val);
+	mutex_unlock(&info->lock);
+	if (ret)
+		return ret;
+
+	le = cpu_to_le64(val);
+	memcpy(buf, (u8 *)&le + offset, bytes);
+	return 0;
+}
+
+static int s2mpu06_rtc_nvmem_write(void *priv, unsigned int offset, void *buf, size_t bytes)
+{
+	struct s2mpu06_rtc *info = priv;
+	__le64 le;
+	u64 val;
+	int ret;
+
+	mutex_lock(&info->lock);
+	ret = s2mpu06_rtc_scratch_load(info, &val);
+	if (!ret) {
+		le = cpu_to_le64(val);
+		memcpy((u8 *)&le + offset, buf, bytes);
+		ret = s2mpu06_rtc_scratch_store(info, le64_to_cpu(le));
+	}
+	mutex_unlock(&info->lock);
+
+	return ret;
+}
+
+static int s2mpu06_rtc_register_nvmem(struct s2mpu06_rtc *info)
+{
+	struct nvmem_config nvmem = {
+		.dev = info->dev,
+		.name = "s2mpu06-scratch",
+		.id = NVMEM_DEVID_NONE,
+		.type = NVMEM_TYPE_BATTERY_BACKED,
+		.root_only = true,
+		.word_size = 1,
+		.stride = 1,
+		.size = S2MPU06_RTC_SCRATCH_BYTES,
+		.reg_read = s2mpu06_rtc_nvmem_read,
+		.reg_write = s2mpu06_rtc_nvmem_write,
+		.priv = info,
+	};
+
+	return PTR_ERR_OR_ZERO(devm_nvmem_register(info->dev, &nvmem));
+}
+
 static int s2mpu06_rtc_init_regs(struct s2mpu06_rtc *info)
 {
 	struct regmap *rtc = info->s2m->rtc;
@@ -312,7 +416,11 @@ static int s2mpu06_rtc_probe(struct platform_device *pdev)
 
 	device_init_wakeup(dev, true);
 
-	return devm_rtc_register_device(info->rtc);
+	ret = devm_rtc_register_device(info->rtc);
+	if (ret)
+		return ret;
+
+	return s2mpu06_rtc_register_nvmem(info);
 }
 
 static const struct platform_device_id s2mpu06_rtc_id[] = {
