@@ -333,6 +333,15 @@ static int mip4_query_device(struct mip4_ts *ts)
 
 		ts->ppm_x = buf[12];
 		ts->ppm_y = buf[13];
+
+		/*
+		 * Some firmwares report the resolution of one axis only, which
+		 * libinput rejects as a kernel bug. The sensor has square cells.
+		 */
+		if (!ts->ppm_x)
+			ts->ppm_x = ts->ppm_y;
+		if (!ts->ppm_y)
+			ts->ppm_y = ts->ppm_x;
 		dev_dbg(&ts->client->dev, "ppm_x: %d, ppm_y: %d\n",
 			ts->ppm_x, ts->ppm_y);
 
