@@ -42,6 +42,10 @@ struct dw_mci_exynos_priv_data {
 	u32				tuned_sample;
 	u32				cur_speed;
 	u32				dqs_delay;
+	bool				hs400_ulp;
+	u32				ulp_default;	/* the ULP bits as found at probe */
+	u32				txdt_crc_fastlimit;
+	u32				txdt_crc_initval;
 	u32				saved_dqs_en;
 	u32				saved_strobe_ctrl;
 };
@@ -127,6 +131,12 @@ static int dw_mci_exynos_priv_init(struct dw_mci *host)
 
 	dw_mci_exynos_config_smu(host);
 
+	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
+	    priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU ||
+	    priv->ctrl_type == DW_MCI_TYPE_EXYNOS7870 ||
+	    priv->ctrl_type == DW_MCI_TYPE_EXYNOS7870_SMU)
+		priv->ulp_default = mci_readl(host, CLKSEL64) & SDMMC_CLKSEL_ULP;
+
 	if (priv->ctrl_type >= DW_MCI_TYPE_EXYNOS5420) {
 		priv->saved_strobe_ctrl = mci_readl(host, HS400_DLINE_CTRL);
 		priv->saved_dqs_en = mci_readl(host, HS400_DQS_EN);
@@ -168,7 +178,9 @@ static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
 	else
 		clksel = mci_readl(host, CLKSEL);
 
-	clksel = (clksel & ~SDMMC_CLKSEL_TIMING_MASK) | timing;
+	/* only HS400 changes the ULP bits, every other timing keeps them as found */
+	clksel = (clksel & ~(SDMMC_CLKSEL_TIMING_MASK | SDMMC_CLKSEL_ULP)) |
+		 priv->ulp_default | timing;
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS7 ||
 		priv->ctrl_type == DW_MCI_TYPE_EXYNOS7_SMU ||
@@ -287,6 +299,13 @@ static void dw_mci_exynos_config_hs400(struct dw_mci *host, u32 timing)
 	if (timing == MMC_TIMING_MMC_HS400) {
 		dqs |= DATA_STROBE_EN;
 		strobe = DQS_CTRL_RD_DELAY(strobe, priv->dqs_delay);
+		if (priv->hs400_ulp) {
+			/* when the write data CRC status is expected, and the FIFO clock delay */
+			dqs = (dqs & ~DQS_EN_TXDT_CRC_TIMER_MASK) |
+			      DQS_EN_TXDT_CRC_TIMER(priv->txdt_crc_fastlimit,
+						    priv->txdt_crc_initval);
+			strobe = DQS_CTRL_FIFO_CLK_DELAY(strobe, 2);
+		}
 	} else if (timing == MMC_TIMING_UHS_SDR104) {
 		dqs &= 0xffffff00;
 	} else {
@@ -340,7 +359,10 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 		/* Update tuned sample timing */
 		clksel = SDMMC_CLKSEL_UP_SAMPLE(
 				priv->hs400_timing, priv->tuned_sample);
-		wanted <<= 1;
+		if (priv->hs400_ulp)
+			clksel |= SDMMC_CLKSEL_ULP;	/* the card clock stays the CIU clock */
+		else
+			wanted <<= 1;
 		break;
 	case MMC_TIMING_MMC_DDR52:
 		clksel = priv->ddr_timing;
@@ -419,8 +441,18 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 		dev_dbg(host->dev,
 			"read-strobe-delay is not found, assuming usage of default value\n");
 
+	/*
+	 * The ultra low power route runs HS400 off the CIU clock divided like in the
+	 * other modes, instead of the fixed divider of the regular route.
+	 */
+	priv->hs400_ulp = of_property_read_bool(np, "samsung,hs400-ulp-mode");
+	of_property_read_u32(np, "samsung,dw-mshc-txdt-crc-timer-fastlimit",
+			     &priv->txdt_crc_fastlimit);
+	of_property_read_u32(np, "samsung,dw-mshc-txdt-crc-timer-initval",
+			     &priv->txdt_crc_initval);
+
 	priv->hs400_timing = SDMMC_CLKSEL_TIMING(timing[0], timing[1],
-						HS400_FIXED_CIU_CLK_DIV);
+						priv->hs400_ulp ? div : HS400_FIXED_CIU_CLK_DIV);
 	host->priv = priv;
 	return 0;
 }
@@ -567,6 +599,13 @@ static int dw_mci_exynos_prepare_hs400_tuning(struct dw_mci *host,
 					struct mmc_ios *ios)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
+
+	/*
+	 * The ultra low power route is tuned in the plain HS200 setup and only
+	 * switched to its own timing for HS400, with the tuned sample.
+	 */
+	if (priv->hs400_ulp)
+		return 0;
 
 	dw_mci_exynos_set_clksel_timing(host, priv->hs400_timing);
 	dw_mci_exynos_adjust_clock(host, (ios->clock) << 1);

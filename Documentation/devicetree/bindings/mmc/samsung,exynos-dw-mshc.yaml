@@ -113,6 +113,28 @@ properties:
       phase shift value in receive mode for single data rate mode operation.
       See also samsung,dw-mshc-hs400-timing property.
 
+  samsung,hs400-ulp-mode:
+    type: boolean
+    description:
+      Run HS400 in the ultra low power mode of the controller. The card clock
+      stays the CIU clock (divided like in the other modes) and the timing of
+      samsung,dw-mshc-hs400-timing applies to that divider, instead of the
+      fixed divider and doubled CIU clock of the regular route.
+
+  samsung,dw-mshc-txdt-crc-timer-fastlimit:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    maximum: 255
+    description:
+      Limit of the timer that waits for the CRC status of write data in HS400
+      with samsung,hs400-ulp-mode.
+
+  samsung,dw-mshc-txdt-crc-timer-initval:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    maximum: 255
+    description:
+      Initial value of the timer that waits for the CRC status of write data
+      in HS400 with samsung,hs400-ulp-mode.
+
   samsung,read-strobe-delay:
     $ref: /schemas/types.yaml#/definitions/uint32
     description:

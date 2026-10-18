@@ -34,9 +34,17 @@
 #define DATA_STROBE_EN			BIT(0)
 #define AXI_NON_BLOCKING_WR	BIT(7)
 
+/* DQS_EN register defines */
+#define DQS_EN_TXDT_CRC_TIMER(fast, init)	((((fast) & 0xFF) << 16) | (((init) & 0xFF) << 8))
+#define DQS_EN_TXDT_CRC_TIMER_MASK		DQS_EN_TXDT_CRC_TIMER(0xFF, 0xFF)
+
 /* DLINE_CTRL register defines */
 #define DQS_CTRL_RD_DELAY(x, y)		(((x) & ~0x3FF) | ((y) & 0x3FF))
 #define DQS_CTRL_GET_RD_DELAY(x)	((x) & 0x3FF)
+#define DQS_CTRL_FIFO_CLK_DELAY(x, y)	(((x) & ~(0x3 << 16)) | (((y) & 0x3) << 16))
+
+/* CLKSEL: ultra low power mode, used with HS400 on Exynos7570 */
+#define SDMMC_CLKSEL_ULP		(BIT(30) | BIT(19))
 
 /* Protector Register */
 #define SDMMC_EMMCP_BASE	0x1000
