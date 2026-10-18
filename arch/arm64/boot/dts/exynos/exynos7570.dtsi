@@ -15,6 +15,17 @@
 
 	interrupt-parent = <&gic>;
 
+	aliases {
+		pinctrl0 = &pinctrl_alive;
+		pinctrl1 = &pinctrl_dispaud;
+		pinctrl2 = &pinctrl_ese;
+		pinctrl3 = &pinctrl_fsys;
+		pinctrl4 = &pinctrl_mif;
+		pinctrl5 = &pinctrl_nfc;
+		pinctrl6 = &pinctrl_top;
+		pinctrl7 = &pinctrl_touch;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -116,6 +127,12 @@
 
 			clock-names = "oscclk";
 			clocks = <&oscclk>;
+		};
+
+		pinctrl_mif: pinctrl@10530000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x10530000 0x1000>;
+			interrupts = <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		gic: interrupt-controller@104e1000 {
@@ -229,6 +246,53 @@
 				mode-download = <0x12345671>;
 				mode-recovery = <0x12345674>;
 			};
+		};
+
+		pinctrl_fsys: pinctrl@13750000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x13750000 0x1000>;
+			interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_top: pinctrl@139b0000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x139b0000 0x1000>;
+			interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_nfc: pinctrl@139c0000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x139c0000 0x1000>;
+			interrupts = <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_touch: pinctrl@139d0000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x139d0000 0x1000>;
+			interrupts = <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_ese: pinctrl@139e0000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x139e0000 0x1000>;
+			interrupts = <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pinctrl_alive: pinctrl@139f0000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x139f0000 0x1000>;
+
+			wakeup-interrupt-controller {
+				compatible = "samsung,exynos7570-wakeup-eint",
+					     "samsung,exynos7-wakeup-eint";
+				interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+
+		pinctrl_dispaud: pinctrl@148c0000 {
+			compatible = "samsung,exynos7570-pinctrl";
+			reg = <0x148c0000 0x1000>;
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 
