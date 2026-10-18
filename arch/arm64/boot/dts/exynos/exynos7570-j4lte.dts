@@ -140,7 +140,12 @@
 	cap-mmc-highspeed;
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
-	mmc-hs400-1_8v;
+	/*
+	 * HS400 works (see the ULP timing above) but is left off until the data
+	 * corruption seen during large package installs is explained. It is
+	 * suspected, not proven, to be involved.
+	 */
+	/* mmc-hs400-1_8v; */
 	no-sd;
 	no-sdio;
 
