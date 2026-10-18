@@ -53,9 +53,12 @@
 #define CLK_GOUT_MIF_PDMA0_ACLK                          44
 #define CLK_GOUT_MIF_SPEEDY_PCLK                         45
 #define CLK_GOUT_MIF_SPEEDY_CLK                          46
-#define CLK_GOUT_MIF_GPIO_PCLK                           47
-#define CLK_GOUT_MIF_SYSREG_PCLK                         48
-#define MIF_NR_CLK                                       49
+#define CLK_GOUT_MIF_ADC_PCLK_S0                         47
+#define CLK_GOUT_MIF_ADC_PCLK_S1                         48
+#define CLK_GOUT_MIF_ADC_OSC_SYS                         49
+#define CLK_GOUT_MIF_GPIO_PCLK                           50
+#define CLK_GOUT_MIF_SYSREG_PCLK                         51
+#define MIF_NR_CLK                                       52
 
 /* CMU_FSYS */
 #define CLK_FRAT_FSYS_USB20DRD_PHYCLOCK                  1

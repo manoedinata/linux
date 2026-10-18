@@ -63,6 +63,7 @@
 #define CLK_CON_DIV_CLKCMU_PERI_SPI_ESE                  0x046c
 #define CLK_CON_DIV_CLKCMU_PERI_USI_0                    0x0470
 #define CLK_CON_DIV_CLKCMU_PERI_USI_1                    0x0474
+#define CLK_ENABLE_CLK_MIF_OSCCLK                        0x0800
 #define CLK_ENABLE_CLK_MIF_BUSD                          0x0810
 #define CLK_ENABLE_CLK_MIF_APB                           0x0814
 #define CLK_ENABLE_CLKCMU_FSYS_BUS                       0x0850
@@ -113,6 +114,7 @@ static const unsigned long mif_clk_regs[] __initconst = {
 	CLK_CON_DIV_CLKCMU_PERI_SPI_ESE,
 	CLK_CON_DIV_CLKCMU_PERI_USI_0,
 	CLK_CON_DIV_CLKCMU_PERI_USI_1,
+	CLK_ENABLE_CLK_MIF_OSCCLK,
 	CLK_ENABLE_CLK_MIF_BUSD,
 	CLK_ENABLE_CLK_MIF_APB,
 	CLK_ENABLE_CLKCMU_FSYS_BUS,
@@ -211,6 +213,9 @@ static const struct samsung_gate_clock mif_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_MIF_PDMA0_ACLK, "gout_mif_pdma0_aclk", "dout_mif_busd", CLK_ENABLE_CLK_MIF_BUSD, 5, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_SPEEDY_PCLK, "gout_mif_speedy_pclk", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 25, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_SPEEDY_CLK, "gout_mif_speedy_clk", "frat_mif_tcxo", CLK_ENABLE_CLK_MIF_TCXO, 0, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_MIF_ADC_PCLK_S0, "gout_mif_adc_pclk_s0", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 4, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_MIF_ADC_PCLK_S1, "gout_mif_adc_pclk_s1", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 5, CLK_IS_CRITICAL, 0),
+	GATE(CLK_GOUT_MIF_ADC_OSC_SYS, "gout_mif_adc_osc_sys", "oscclk", CLK_ENABLE_CLK_MIF_OSCCLK, 2, 0, 0),
 	GATE(CLK_GOUT_MIF_GPIO_PCLK, "gout_mif_gpio_pclk", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 2, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_MIF_SYSREG_PCLK, "gout_mif_sysreg_pclk", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 1, CLK_IS_CRITICAL, 0),
 };
