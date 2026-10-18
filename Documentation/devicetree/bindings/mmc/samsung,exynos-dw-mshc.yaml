@@ -27,6 +27,12 @@ properties:
           - samsung,exynos7870-dw-mshc
           - samsung,exynos7870-dw-mshc-smu
       - items:
+          - const: samsung,exynos7570-dw-mshc
+          - const: samsung,exynos7870-dw-mshc
+      - items:
+          - const: samsung,exynos7570-dw-mshc-smu
+          - const: samsung,exynos7870-dw-mshc-smu
+      - items:
           - enum:
               - samsung,exynos5433-dw-mshc-smu
               - samsung,exynos7885-dw-mshc-smu
