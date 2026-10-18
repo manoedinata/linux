@@ -225,3 +225,11 @@
 		#interrupt-cells = <2>;
 	};
 };
+
+&pinctrl_mif {
+	speedy_bus: speedy-bus-pins {
+		samsung,pins = "gpm0-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+	};
+};
