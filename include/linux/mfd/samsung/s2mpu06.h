@@ -49,6 +49,7 @@ struct s2mpu06 {
 	struct device *dev;
 	struct regmap *top;
 	struct regmap *pmic;
+	struct regmap *rtc;
 	struct regmap *chg;
 	struct regmap *fg;
 	struct regmap *codec;
