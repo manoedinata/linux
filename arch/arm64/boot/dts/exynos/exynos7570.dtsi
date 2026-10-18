@@ -163,9 +163,53 @@
 			status = "disabled";
 		};
 
+		usbdrd_phy: phy@135c0000 {
+			compatible = "samsung,exynos7570-usbdrd-phy",
+				     "samsung,exynos7870-usbdrd-phy";
+			reg = <0x135c0000 0x100>;
+			#phy-cells = <1>;
+
+			clock-names = "phy", "ref";
+			clocks = <&cmu_fsys CLK_GOUT_FSYS_USB20DRD_PHYCLOCK>,
+				 <&cmu_fsys CLK_GOUT_FSYS_USB20DRD_CLKCORE>;
+
+			/* the controller needs the PHY's 60 MHz UTMI clock */
+			assigned-clocks = <&cmu_fsys CLK_MOUT_FSYS_USB20DRD_PHYCLOCK_USER>;
+			assigned-clock-parents = <&cmu_fsys CLK_FRAT_FSYS_USB20DRD_PHYCLOCK>;
+
+			samsung,pmu-syscon = <&pmu_system_controller>;
+		};
+
+		usbdrd: usb@13600000 {
+			compatible = "samsung,exynos7570-dwusb3",
+				     "samsung,exynos7870-dwusb3";
+			ranges = <0x0 0x13600000 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			clock-names = "bus_early", "ref", "ctrl";
+			clocks = <&cmu_fsys CLK_GOUT_FSYS_USB20DRD_ACLK_HSDRD>,
+				 <&cmu_fsys CLK_GOUT_FSYS_USB20DRD_REF_CLK>,
+				 <&cmu_fsys CLK_GOUT_FSYS_USB20DRD_HCLK_CTRL>;
+
+			status = "disabled";
+
+			usbdrd_dwc3: usb@0 {
+				compatible = "snps,dwc3";
+				reg = <0x0 0x10000>;
+				interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+
+				phy-names = "usb2-phy";
+				phys = <&usbdrd_phy 0>;
+
+				maximum-speed = "high-speed";
+				snps,usb2-gadget-lpm-disable;
+			};
+		};
+
 		cmu_fsys: clock-controller@13730000 {
 			compatible = "samsung,exynos7570-cmu-fsys";
-			reg = <0x13730000 0x1000>;
+			reg = <0x13730000 0x2000>;
 			#clock-cells = <1>;
 
 			clock-names = "oscclk";
