@@ -138,6 +138,21 @@
 			clock-names = "oscclk";
 			clocks = <&oscclk>;
 		};
+
+		pmu_system_controller: system-controller@11c80000 {
+			compatible = "samsung,exynos7570-pmu",
+				     "samsung,exynos7-pmu", "syscon";
+			reg = <0x11c80000 0x10000>;
+
+			reboot-mode {
+				compatible = "syscon-reboot-mode";
+				offset = <0x080c>;
+				mode-normal = <0x12345670>;
+				mode-bootloader = <0x1234567d>;
+				mode-download = <0x12345671>;
+				mode-recovery = <0x12345674>;
+			};
+		};
 	};
 
 	timer {
@@ -153,3 +168,5 @@
 		clock-frequency = <26000000>;
 	};
 };
+
+#include "arm/samsung/exynos-syscon-restart.dtsi"
