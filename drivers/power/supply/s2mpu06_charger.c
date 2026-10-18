@@ -13,6 +13,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/extcon.h>
 #include <linux/math.h>
 #include <linux/interrupt.h>
 #include <linux/mfd/samsung/s2mpu06.h>
@@ -89,12 +90,25 @@ enum s2mpu06_temp_state {
 	S2MPU06_TEMP_HOT_BLOCK,
 };
 
+/*
+ * Input and charge current per cable type, from the J4's cable table: a PC port
+ * gives 500 mA, a wall charger (the vendor's "TA") 1 A in and 1.2 A to the cell.
+ */
+#define S2MPU06_USB_IIN_UA		500000
+#define S2MPU06_USB_ICHG_UA		500000
+#define S2MPU06_DCP_IIN_UA		1000000
+#define S2MPU06_DCP_ICHG_UA		1200000
+
 struct s2mpu06_charger {
 	struct device *dev;
 	struct s2mpu06 *s2m;
 	struct power_supply *psy;
 	struct delayed_work work;
 	struct mutex lock;	/* requested limits and the thermal state */
+
+	struct extcon_dev *edev;
+	struct notifier_block cable_nb;
+	struct work_struct cable_work;
 
 	/* what userspace (or the bootloader) asked for, in register units */
 	unsigned int req_ichg_sel;
@@ -500,6 +514,41 @@ static irqreturn_t s2mpu06_charger_acok_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/* the cable the MUIC reports decides how much current may be drawn and given to the cell */
+static void s2mpu06_charger_cable_work(struct work_struct *work)
+{
+	struct s2mpu06_charger *chg = container_of(work, struct s2mpu06_charger, cable_work);
+	int iin = S2MPU06_USB_IIN_UA, ichg = S2MPU06_USB_ICHG_UA;
+
+	if (extcon_get_state(chg->edev, EXTCON_CHG_USB_DCP) > 0) {
+		iin = S2MPU06_DCP_IIN_UA;
+		ichg = S2MPU06_DCP_ICHG_UA;
+	}
+
+	mutex_lock(&chg->lock);
+	chg->req_iin_sel = clamp(iin / S2MPU06_IIN_STEP_UA, S2MPU06_IIN_MIN_SEL, S2MPU06_IIN_MAX_SEL);
+	chg->req_ichg_sel = s2mpu06_ichg_to_sel(ichg);
+	if (!s2mpu06_charger_apply_limits(chg))
+		dev_info(chg->dev, "cable: input %d mA, charge %d mA\n", iin / 1000, ichg / 1000);
+	mutex_unlock(&chg->lock);
+
+	power_supply_changed(chg->psy);
+}
+
+static int s2mpu06_charger_cable_event(struct notifier_block *nb, unsigned long state, void *data)
+{
+	struct s2mpu06_charger *chg = container_of(nb, struct s2mpu06_charger, cable_nb);
+
+	schedule_work(&chg->cable_work);
+
+	return NOTIFY_OK;
+}
+
+static void s2mpu06_charger_cancel_cable(void *data)
+{
+	cancel_work_sync(data);
+}
+
 static void s2mpu06_charger_cancel_work(void *data)
 {
 	cancel_delayed_work_sync(data);
@@ -552,6 +601,31 @@ static int s2mpu06_charger_probe(struct platform_device *pdev)
 						IRQF_ONESHOT, "s2mpu06-acok", chg);
 		if (ret)
 			return dev_err_probe(dev, ret, "cannot request the AC OK irq\n");
+	}
+
+	/* optional: without a MUIC the limits stay as they were left */
+	chg->edev = extcon_get_edev_by_phandle(dev->parent, 0);
+	if (IS_ERR(chg->edev)) {
+		ret = PTR_ERR(chg->edev);
+		chg->edev = NULL;
+		if (ret == -EPROBE_DEFER)
+			return ret;
+	}
+	if (chg->edev) {
+		INIT_WORK(&chg->cable_work, s2mpu06_charger_cable_work);
+		ret = devm_add_action_or_reset(dev, s2mpu06_charger_cancel_cable, &chg->cable_work);
+		if (ret)
+			return ret;
+
+		chg->cable_nb.notifier_call = s2mpu06_charger_cable_event;
+		for (i = 0; i < 2; i++) {
+			ret = devm_extcon_register_notifier(dev, chg->edev,
+							    i ? EXTCON_CHG_USB_DCP : EXTCON_CHG_USB_SDP,
+							    &chg->cable_nb);
+			if (ret)
+				return dev_err_probe(dev, ret, "cannot watch the cable\n");
+		}
+		schedule_work(&chg->cable_work);
 	}
 
 	regmap_read(chg->s2m->chg, S2MPU06_CHG_CTRL12, &ctrl12);
