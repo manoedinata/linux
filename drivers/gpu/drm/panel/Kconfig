@@ -735,6 +735,17 @@ config DRM_PANEL_SAMSUNG_S6E8AA0
 	select DRM_MIPI_DSI
 	select VIDEOMODE_HELPERS
 
+config DRM_PANEL_SAMSUNG_EA8061S
+	tristate "Samsung EA8061S (AMS549HZ37) panel"
+	depends on GPIOLIB && OF && REGULATOR
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Samsung's EA8061S
+	  (AMS549HZ37) 720x1280 AMOLED panel, as used in the Samsung Galaxy
+	  J4 (SM-J400F). It is driven by the MIPI DSI protocol in video
+	  mode with 4 lanes.
+
 config DRM_PANEL_SAMSUNG_SOFEF00
 	tristate "Samsung sofef00/s6e3fc2x01 OnePlus 6/6T DSI cmd mode panels"
 	depends on OF
