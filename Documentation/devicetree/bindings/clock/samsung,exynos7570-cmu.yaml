@@ -27,17 +27,27 @@ properties:
       - samsung,exynos7570-cmu-mif
       - samsung,exynos7570-cmu-fsys
       - samsung,exynos7570-cmu-peri
+      - samsung,exynos7570-cmu-dispaud
 
   clocks:
+    minItems: 1
     items:
       - description: External reference clock (26 MHz)
+      - description: Bus clock of the CMU, a gate in CMU_MIF
+      - description: DECON video clock source, a gate in CMU_MIF
 
   clock-names:
+    minItems: 1
     items:
       - const: oscclk
+      - const: bus
+      - const: decon_vclk
 
   "#clock-cells":
     const: 1
+
+  power-domains:
+    maxItems: 1
 
   reg:
     maxItems: 1
@@ -48,6 +58,25 @@ required:
   - clock-names
   - "#clock-cells"
   - reg
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: samsung,exynos7570-cmu-dispaud
+    then:
+      properties:
+        clocks:
+          minItems: 3
+        clock-names:
+          minItems: 3
+    else:
+      properties:
+        clocks:
+          maxItems: 1
+        clock-names:
+          maxItems: 1
 
 additionalProperties: false
 

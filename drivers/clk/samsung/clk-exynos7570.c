@@ -39,6 +39,8 @@
 #define CLK_CON_MUX_SHARED1_PLL                          0x0204
 #define CLK_CON_MUX_SHARED2_PLL                          0x0208
 #define CLK_CON_MUX_CLK_MIF_BUSD                         0x0220
+#define CLK_CON_MUX_CLKCMU_DISPAUD_BUS                   0x0234
+#define CLK_CON_MUX_CLKCMU_DISPAUD_DECON_INT_VCLK        0x0238
 #define CLK_CON_MUX_CLKCMU_FSYS_BUS                      0x0248
 #define CLK_CON_MUX_CLKCMU_FSYS_MMC0                     0x024c
 #define CLK_CON_MUX_CLKCMU_FSYS_MMC2                     0x0250
@@ -52,6 +54,8 @@
 #define CLK_CON_MUX_CLKCMU_PERI_USI_1                    0x0278
 #define CLK_CON_DIV_CLK_MIF_BUSD                         0x0414
 #define CLK_CON_DIV_CLK_MIF_APB                          0x0418
+#define CLK_CON_DIV_CLKCMU_DISPAUD_BUS                   0x0430
+#define CLK_CON_DIV_CLKCMU_DISPAUD_DECON_INT_VCLK        0x0434
 #define CLK_CON_DIV_CLKCMU_FSYS_BUS                      0x0444
 #define CLK_CON_DIV_CLKCMU_FSYS_MMC0                     0x0448
 #define CLK_CON_DIV_CLKCMU_FSYS_MMC2                     0x044c
@@ -66,6 +70,8 @@
 #define CLK_ENABLE_CLK_MIF_OSCCLK                        0x0800
 #define CLK_ENABLE_CLK_MIF_BUSD                          0x0810
 #define CLK_ENABLE_CLK_MIF_APB                           0x0814
+#define CLK_ENABLE_CLKCMU_DISPAUD_BUS                    0x083c
+#define CLK_ENABLE_CLKCMU_DISPAUD_DECON_INT_VCLK         0x0840
 #define CLK_ENABLE_CLKCMU_FSYS_BUS                       0x0850
 #define CLK_ENABLE_CLKCMU_FSYS_MMC0                      0x0854
 #define CLK_ENABLE_CLKCMU_FSYS_MMC2                      0x0858
@@ -90,6 +96,8 @@ static const unsigned long mif_clk_regs[] __initconst = {
 	CLK_CON_MUX_SHARED1_PLL,
 	CLK_CON_MUX_SHARED2_PLL,
 	CLK_CON_MUX_CLK_MIF_BUSD,
+	CLK_CON_MUX_CLKCMU_DISPAUD_BUS,
+	CLK_CON_MUX_CLKCMU_DISPAUD_DECON_INT_VCLK,
 	CLK_CON_MUX_CLKCMU_FSYS_BUS,
 	CLK_CON_MUX_CLKCMU_FSYS_MMC0,
 	CLK_CON_MUX_CLKCMU_FSYS_MMC2,
@@ -103,6 +111,8 @@ static const unsigned long mif_clk_regs[] __initconst = {
 	CLK_CON_MUX_CLKCMU_PERI_USI_1,
 	CLK_CON_DIV_CLK_MIF_BUSD,
 	CLK_CON_DIV_CLK_MIF_APB,
+	CLK_CON_DIV_CLKCMU_DISPAUD_BUS,
+	CLK_CON_DIV_CLKCMU_DISPAUD_DECON_INT_VCLK,
 	CLK_CON_DIV_CLKCMU_FSYS_BUS,
 	CLK_CON_DIV_CLKCMU_FSYS_MMC0,
 	CLK_CON_DIV_CLKCMU_FSYS_MMC2,
@@ -117,6 +127,8 @@ static const unsigned long mif_clk_regs[] __initconst = {
 	CLK_ENABLE_CLK_MIF_OSCCLK,
 	CLK_ENABLE_CLK_MIF_BUSD,
 	CLK_ENABLE_CLK_MIF_APB,
+	CLK_ENABLE_CLKCMU_DISPAUD_BUS,
+	CLK_ENABLE_CLKCMU_DISPAUD_DECON_INT_VCLK,
 	CLK_ENABLE_CLKCMU_FSYS_BUS,
 	CLK_ENABLE_CLKCMU_FSYS_MMC0,
 	CLK_ENABLE_CLKCMU_FSYS_MMC2,
@@ -163,6 +175,8 @@ PNAME(mout_mif_cmu_peri_spi_rearfrom_p) = { "ffac_mif_shared0_pll_div2", "oscclk
 PNAME(mout_mif_cmu_peri_spi_ese_p) = { "ffac_mif_shared0_pll_div2", "oscclk" };
 PNAME(mout_mif_cmu_peri_usi_0_p) = { "ffac_mif_shared0_pll_div2", "ffac_mif_shared1_pll_div2", "oscclk" };
 PNAME(mout_mif_cmu_peri_usi_1_p) = { "ffac_mif_shared0_pll_div2", "ffac_mif_shared1_pll_div2", "oscclk" };
+PNAME(mout_mif_cmu_dispaud_bus_p) = { "ffac_mif_shared0_pll_div2", "ffac_mif_shared1_pll_div2" };
+PNAME(mout_mif_cmu_dispaud_decon_int_vclk_p) = { "mout_mif_shared0_pll", "mout_mif_shared1_pll", "mout_mif_shared2_pll" };
 
 static const struct samsung_mux_clock mif_mux_clks[] __initconst = {
 	MUX(CLK_MOUT_MIF_SHARED0_PLL, "mout_mif_shared0_pll", mout_mif_shared0_pll_p, CLK_CON_MUX_SHARED0_PLL, 12, 1),
@@ -180,6 +194,8 @@ static const struct samsung_mux_clock mif_mux_clks[] __initconst = {
 	MUX(CLK_MOUT_MIF_CMU_PERI_SPI_ESE, "mout_mif_cmu_peri_spi_ese", mout_mif_cmu_peri_spi_ese_p, CLK_CON_MUX_CLKCMU_PERI_SPI_ESE, 12, 1),
 	MUX(CLK_MOUT_MIF_CMU_PERI_USI_0, "mout_mif_cmu_peri_usi_0", mout_mif_cmu_peri_usi_0_p, CLK_CON_MUX_CLKCMU_PERI_USI_0, 12, 2),
 	MUX(CLK_MOUT_MIF_CMU_PERI_USI_1, "mout_mif_cmu_peri_usi_1", mout_mif_cmu_peri_usi_1_p, CLK_CON_MUX_CLKCMU_PERI_USI_1, 12, 2),
+	MUX(CLK_MOUT_MIF_CMU_DISPAUD_BUS, "mout_mif_cmu_dispaud_bus", mout_mif_cmu_dispaud_bus_p, CLK_CON_MUX_CLKCMU_DISPAUD_BUS, 12, 1),
+	MUX(CLK_MOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK, "mout_mif_cmu_dispaud_decon_int_vclk", mout_mif_cmu_dispaud_decon_int_vclk_p, CLK_CON_MUX_CLKCMU_DISPAUD_DECON_INT_VCLK, 12, 2),
 };
 
 static const struct samsung_div_clock mif_div_clks[] __initconst = {
@@ -196,6 +212,8 @@ static const struct samsung_div_clock mif_div_clks[] __initconst = {
 	DIV(CLK_DOUT_MIF_CMU_PERI_SPI_ESE, "dout_mif_cmu_peri_spi_ese", "mout_mif_cmu_peri_spi_ese", CLK_CON_DIV_CLKCMU_PERI_SPI_ESE, 0, 6),
 	DIV(CLK_DOUT_MIF_CMU_PERI_USI_0, "dout_mif_cmu_peri_usi_0", "mout_mif_cmu_peri_usi_0", CLK_CON_DIV_CLKCMU_PERI_USI_0, 0, 6),
 	DIV(CLK_DOUT_MIF_CMU_PERI_USI_1, "dout_mif_cmu_peri_usi_1", "mout_mif_cmu_peri_usi_1", CLK_CON_DIV_CLKCMU_PERI_USI_1, 0, 6),
+	DIV(CLK_DOUT_MIF_CMU_DISPAUD_BUS, "dout_mif_cmu_dispaud_bus", "mout_mif_cmu_dispaud_bus", CLK_CON_DIV_CLKCMU_DISPAUD_BUS, 0, 4),
+	DIV(CLK_DOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK, "dout_mif_cmu_dispaud_decon_int_vclk", "mout_mif_cmu_dispaud_decon_int_vclk", CLK_CON_DIV_CLKCMU_DISPAUD_DECON_INT_VCLK, 0, 4),
 };
 
 static const struct samsung_gate_clock mif_gate_clks[] __initconst = {
@@ -210,6 +228,8 @@ static const struct samsung_gate_clock mif_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_MIF_CMU_PERI_SPI_ESE, "gout_mif_cmu_peri_spi_ese", "dout_mif_cmu_peri_spi_ese", CLK_ENABLE_CLKCMU_PERI_SPI_ESE, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_CMU_PERI_USI_0, "gout_mif_cmu_peri_usi_0", "dout_mif_cmu_peri_usi_0", CLK_ENABLE_CLKCMU_PERI_USI_0, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_CMU_PERI_USI_1, "gout_mif_cmu_peri_usi_1", "dout_mif_cmu_peri_usi_1", CLK_ENABLE_CLKCMU_PERI_USI_1, 0, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_MIF_CMU_DISPAUD_BUS, "gout_mif_cmu_dispaud_bus", "dout_mif_cmu_dispaud_bus", CLK_ENABLE_CLKCMU_DISPAUD_BUS, 0, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK, "gout_mif_cmu_dispaud_decon_int_vclk", "dout_mif_cmu_dispaud_decon_int_vclk", CLK_ENABLE_CLKCMU_DISPAUD_DECON_INT_VCLK, 0, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_PDMA0_ACLK, "gout_mif_pdma0_aclk", "dout_mif_busd", CLK_ENABLE_CLK_MIF_BUSD, 5, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_SPEEDY_PCLK, "gout_mif_speedy_pclk", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 25, CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_MIF_SPEEDY_CLK, "gout_mif_speedy_clk", "frat_mif_tcxo", CLK_ENABLE_CLK_MIF_TCXO, 0, CLK_SET_RATE_PARENT, 0),
@@ -389,6 +409,85 @@ static const struct samsung_cmu_info peri_cmu_info __initconst = {
 };
 
 /*
+ * Register offsets for CMU_DISPAUD (0x148d0000)
+ */
+#define CLK_CON_MUX_CLKCMU_DISPAUD_BUS_USER              0x0210
+#define CLK_CON_MUX_CLKCMU_DISPAUD_DECON_INT_VCLK_USER   0x0214
+#define CLK_CON_MUX_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS_USER 0x0224
+#define CLK_CON_MUX_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0_USER 0x0228
+#define CLK_CON_DIV_CLK_DISPAUD_APB                      0x0400
+#define CLK_CON_DIV_CLK_DISPAUD_DECON_INT_VCLK           0x0404
+#define CLK_ENABLE_CLK_DISPAUD_BUS                       0x0810
+#define CLK_ENABLE_CLK_DISPAUD_APB                       0x0814
+#define CLK_ENABLE_CLK_DISPAUD_DECON_INT_VCLK            0x0820
+#define CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS    0x0824
+#define CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0      0x0828
+
+static const unsigned long dispaud_clk_regs[] __initconst = {
+	CLK_CON_MUX_CLKCMU_DISPAUD_BUS_USER,
+	CLK_CON_MUX_CLKCMU_DISPAUD_DECON_INT_VCLK_USER,
+	CLK_CON_MUX_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS_USER,
+	CLK_CON_MUX_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0_USER,
+	CLK_CON_DIV_CLK_DISPAUD_APB,
+	CLK_CON_DIV_CLK_DISPAUD_DECON_INT_VCLK,
+	CLK_ENABLE_CLK_DISPAUD_BUS,
+	CLK_ENABLE_CLK_DISPAUD_APB,
+	CLK_ENABLE_CLK_DISPAUD_DECON_INT_VCLK,
+	CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS,
+	CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0,
+};
+
+static const struct samsung_fixed_rate_clock dispaud_fixed_clks[] __initconst = {
+	FRATE(CLK_FRAT_DISPAUD_MIPIPHY_TXBYTECLKHS, "frat_dispaud_mipiphy_txbyteclkhs", NULL, 0, 188000000),
+	FRATE(CLK_FRAT_DISPAUD_MIPIPHY_RXCLKESC0, "frat_dispaud_mipiphy_rxclkesc0", NULL, 0, 188000000),
+};
+
+/* List of parent clocks for muxes in CMU_DISPAUD */
+PNAME(mout_dispaud_bus_user_p) = { "oscclk", "gout_mif_cmu_dispaud_bus" };
+PNAME(mout_dispaud_decon_vclk_user_p) = { "oscclk", "gout_mif_cmu_dispaud_decon_int_vclk" };
+PNAME(mout_dispaud_mipiphy_txbyteclkhs_user_p) = { "oscclk", "frat_dispaud_mipiphy_txbyteclkhs" };
+PNAME(mout_dispaud_mipiphy_rxclkesc0_user_p) = { "oscclk", "frat_dispaud_mipiphy_rxclkesc0" };
+
+static const struct samsung_mux_clock dispaud_mux_clks[] __initconst = {
+	MUX(CLK_MOUT_DISPAUD_BUS_USER, "mout_dispaud_bus_user", mout_dispaud_bus_user_p, CLK_CON_MUX_CLKCMU_DISPAUD_BUS_USER, 12, 1),
+	MUX(CLK_MOUT_DISPAUD_DECON_VCLK_USER, "mout_dispaud_decon_vclk_user", mout_dispaud_decon_vclk_user_p, CLK_CON_MUX_CLKCMU_DISPAUD_DECON_INT_VCLK_USER, 12, 1),
+	MUX(CLK_MOUT_DISPAUD_MIPIPHY_TXBYTECLKHS_USER, "mout_dispaud_mipiphy_txbyteclkhs_user", mout_dispaud_mipiphy_txbyteclkhs_user_p, CLK_CON_MUX_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS_USER, 12, 1),
+	MUX(CLK_MOUT_DISPAUD_MIPIPHY_RXCLKESC0_USER, "mout_dispaud_mipiphy_rxclkesc0_user", mout_dispaud_mipiphy_rxclkesc0_user_p, CLK_CON_MUX_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0_USER, 12, 1),
+};
+
+static const struct samsung_div_clock dispaud_div_clks[] __initconst = {
+	DIV(CLK_DOUT_DISPAUD_APB, "dout_dispaud_apb", "mout_dispaud_bus_user", CLK_CON_DIV_CLK_DISPAUD_APB, 0, 2),
+	DIV(CLK_DOUT_DISPAUD_DECON_VCLK, "dout_dispaud_decon_vclk", "mout_dispaud_decon_vclk_user", CLK_CON_DIV_CLK_DISPAUD_DECON_INT_VCLK, 0, 3),
+};
+
+static const struct samsung_gate_clock dispaud_gate_clks[] __initconst = {
+	GATE(CLK_GOUT_DISPAUD_BUS, "gout_dispaud_bus", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 0, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_BUS_VPP, "gout_dispaud_bus_vpp", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 1, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_BUS_DISP, "gout_dispaud_bus_disp", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 2, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_BUS_PPMU, "gout_dispaud_bus_ppmu", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 3, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_APB, "gout_dispaud_apb", "dout_dispaud_apb", CLK_ENABLE_CLK_DISPAUD_APB, 0, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_APB_DISP, "gout_dispaud_apb_disp", "dout_dispaud_apb", CLK_ENABLE_CLK_DISPAUD_APB, 1, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_DECON_VCLK, "gout_dispaud_decon_vclk", "dout_dispaud_decon_vclk", CLK_ENABLE_CLK_DISPAUD_DECON_INT_VCLK, 0, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_MIPIPHY_TXBYTECLKHS, "gout_dispaud_mipiphy_txbyteclkhs", "mout_dispaud_mipiphy_txbyteclkhs_user", CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS, 0, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_MIPIPHY_RXCLKESC0, "gout_dispaud_mipiphy_rxclkesc0", "mout_dispaud_mipiphy_rxclkesc0_user", CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0, 0, 0, 0),
+};
+
+static const struct samsung_cmu_info dispaud_cmu_info __initconst = {
+	.fixed_clks	= dispaud_fixed_clks,
+	.nr_fixed_clks	= ARRAY_SIZE(dispaud_fixed_clks),
+	.mux_clks	= dispaud_mux_clks,
+	.nr_mux_clks	= ARRAY_SIZE(dispaud_mux_clks),
+	.div_clks	= dispaud_div_clks,
+	.nr_div_clks	= ARRAY_SIZE(dispaud_div_clks),
+	.gate_clks	= dispaud_gate_clks,
+	.nr_gate_clks	= ARRAY_SIZE(dispaud_gate_clks),
+	.clk_regs		= dispaud_clk_regs,
+	.nr_clk_regs		= ARRAY_SIZE(dispaud_clk_regs),
+	.nr_clk_ids		= DISPAUD_NR_CLK,
+	.clk_name		= "bus",
+};
+
+/*
  * USB PLL (WPLL), the 20 MHz reference of the USB PHY. The PLL itself is in
  * the WLBT block; USBPLL_CON1 in CMU_FSYS tells who drives it. Without WLBT
  * firmware the AP owns it: select the 26 MHz reference, enable it, hand the
@@ -513,6 +612,10 @@ static const struct of_device_id exynos7570_cmu_of_match[] = {
 	{
 		.compatible = "samsung,exynos7570-cmu-peri",
 		.data = &peri_cmu_info,
+	},
+	{
+		.compatible = "samsung,exynos7570-cmu-dispaud",
+		.data = &dispaud_cmu_info,
 	},
 	{ },
 };
