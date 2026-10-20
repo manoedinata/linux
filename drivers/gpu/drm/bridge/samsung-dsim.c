@@ -686,6 +686,7 @@ samsung_dsim_types[DSIM_TYPE_COUNT] = {
 	[DSIM_TYPE_EXYNOS5422] = &exynos5422_dsi_driver_data,
 	[DSIM_TYPE_EXYNOS5433] = &exynos5433_dsi_driver_data,
 	[DSIM_TYPE_EXYNOS7870] = &exynos7870_dsi_driver_data,
+	[DSIM_TYPE_EXYNOS7570] = &exynos7870_dsi_driver_data,
 	[DSIM_TYPE_IMX8MM] = &imx8mm_dsi_driver_data,
 	[DSIM_TYPE_IMX8MP] = &imx8mm_dsi_driver_data,
 };
@@ -1171,20 +1172,36 @@ static void samsung_dsim_set_display_mode(struct samsung_dsim *dsi)
 		u64 byte_clk = dsi->hs_clock / 8;
 		u64 pix_clk = m->clock * 1000;
 
-		int hfp = DIV64_U64_ROUND_UP((m->hsync_start - m->hdisplay) * byte_clk, pix_clk);
-		int hbp = DIV64_U64_ROUND_UP((m->htotal - m->hsync_end) * byte_clk, pix_clk);
-		int hsa = DIV64_U64_ROUND_UP((m->hsync_end - m->hsync_start) * byte_clk, pix_clk);
+		u32 cmd_allow = 0xf, stable_vfp = m->vsync_start - m->vdisplay;
+		int hfp, hbp, hsa;
 
-		/* remove packet overhead when possible */
-		hfp = max(hfp - 6, 0);
-		hbp = max(hbp - 6, 0);
-		hsa = max(hsa - 6, 0);
+		if (dsi->plat_data->hw_type == DSIM_TYPE_EXYNOS7570) {
+			/*
+			 * The Exynos7570 DSIM wants the horizontal porches in
+			 * pixels and a short stable VFP, which is how the
+			 * bootloader and the vendor driver program them.
+			 */
+			hfp = m->hsync_start - m->hdisplay;
+			hbp = m->htotal - m->hsync_end;
+			hsa = m->hsync_end - m->hsync_start;
+			cmd_allow = 4;
+			stable_vfp = 2;
+		} else {
+			hfp = DIV64_U64_ROUND_UP((m->hsync_start - m->hdisplay) * byte_clk, pix_clk);
+			hbp = DIV64_U64_ROUND_UP((m->htotal - m->hsync_end) * byte_clk, pix_clk);
+			hsa = DIV64_U64_ROUND_UP((m->hsync_end - m->hsync_start) * byte_clk, pix_clk);
+
+			/* remove packet overhead when possible */
+			hfp = max(hfp - 6, 0);
+			hbp = max(hbp - 6, 0);
+			hsa = max(hsa - 6, 0);
+		}
 
 		dev_dbg(dsi->dev, "calculated hfp: %u, hbp: %u, hsa: %u",
 			hfp, hbp, hsa);
 
-		reg = DSIM_CMD_ALLOW(0xf)
-			| DSIM_STABLE_VFP(m->vsync_start - m->vdisplay)
+		reg = DSIM_CMD_ALLOW(cmd_allow)
+			| DSIM_STABLE_VFP(stable_vfp)
 			| DSIM_MAIN_VBP(m->vtotal - m->vsync_end);
 		samsung_dsim_write(dsi, DSIM_MVPORCH_REG, reg);
 
@@ -1621,6 +1638,21 @@ static int samsung_dsim_init(struct samsung_dsim *dsi)
 
 	if (dsi->state & DSIM_STATE_INITIALIZED)
 		return 0;
+
+	/*
+	 * The Exynos7570 bootloader leaves the DSIM running its video stream
+	 * for the splash screen. A reset would stop it and the panel could not
+	 * be sent commands until a pixel stream is back, so keep the link as it
+	 * is the first time, as the vendor driver does ("LCD ON UBOOT").
+	 */
+	if (dsi->plat_data->hw_type == DSIM_TYPE_EXYNOS7570 && !dsi->adopted &&
+	    (samsung_dsim_read(dsi, DSIM_CLKCTRL_REG) & BIT(driver_data->tx_req_hsclk_bit))) {
+		dev_info(dsi->dev, "keeping the link the bootloader set up\n");
+		dsi->adopted = true;
+		samsung_dsim_enable_irq(dsi);
+		dsi->state |= DSIM_STATE_INITIALIZED;
+		return 0;
+	}
 
 	samsung_dsim_reset(dsi);
 	samsung_dsim_enable_irq(dsi);
