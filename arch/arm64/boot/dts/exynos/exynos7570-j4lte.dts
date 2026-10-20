@@ -19,7 +19,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p25 rootfstype=ext4";
+		bootargs = "console=tty0 fbcon=map:1 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p25 rootfstype=ext4";
 
 		/* Set up by the bootloader (uniLoader), scanned out by DECON */
 		framebuffer0: framebuffer@67000000 {
@@ -454,5 +454,31 @@
 		ce-gpios = <&gpc2 3 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&tsp_irq>;
+	};
+};
+
+&decon {
+	status = "okay";
+};
+
+&dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	samsung,burst-clock-frequency = <490000000>;
+	samsung,pll-clock-frequency = <26000000>;
+	samsung,esc-clock-frequency = <16000000>;
+
+	panel@0 {
+		compatible = "samsung,ea8061s";
+		reg = <0>;
+
+		/* S-BOOT leaves the panel on with the video stream running */
+		samsung,keep-bootloader-state;
+
+		vddio-supply = <&ldo20_reg>;
+		enable-gpios = <&gpd1 0 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpd2 0 GPIO_ACTIVE_HIGH>;
 	};
 };
