@@ -90,6 +90,7 @@ struct decon_context {
 	/* output left running by the bootloader, not taken over yet */
 	bool				handover;
 	bool				handover_done;
+	int				irq;
 
 	const struct decon_data *data;
 	struct drm_encoder *encoder;
@@ -839,7 +840,15 @@ static int decon_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_iounmap;
 
-	ret = devm_request_irq(dev, ret, decon_irq_handler, 0, "drm_decon", ctx);
+	ctx->irq = ret;
+
+	/*
+	 * The handler reads registers, so it must only run while the clocks and
+	 * the power domain are on: a bootloader that leaves DECON running can
+	 * have an interrupt pending before the first runtime resume.
+	 */
+	ret = devm_request_irq(dev, ctx->irq, decon_irq_handler, IRQF_NO_AUTOEN,
+			       "drm_decon", ctx);
 	if (ret) {
 		dev_err(dev, "irq request failed.\n");
 		goto err_iounmap;
@@ -888,6 +897,8 @@ static int exynos7_decon_suspend(struct device *dev)
 {
 	struct decon_context *ctx = dev_get_drvdata(dev);
 
+	disable_irq(ctx->irq);
+
 	clk_disable_unprepare(ctx->vclk);
 	clk_disable_unprepare(ctx->eclk);
 	clk_disable_unprepare(ctx->aclk);
@@ -928,6 +939,8 @@ static int exynos7_decon_resume(struct device *dev)
 			      ret);
 		goto err_vclk_enable;
 	}
+
+	enable_irq(ctx->irq);
 
 	return 0;
 
