@@ -21,6 +21,7 @@ properties:
   compatible:
     enum:
       - samsung,exynos7-decon
+      - samsung,exynos7570-decon
       - samsung,exynos7870-decon
 
   clocks:

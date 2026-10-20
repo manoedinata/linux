@@ -43,6 +43,8 @@
 /* VCLKCON */
 #define VCLKCON1				0x14
 #define VCLKCON1_CLKVAL_NUM_VCLK(val)		(((val) & 0xff) << 0)
+#define VCLKCON1_VCLKNUM_VALUE(_x)		(((_x) & 0x3ff) << 0)
+#define VCLKCON1_VCLKDENOM_VALUE(_x)		(((_x) & 0x3ff) << 16)
 #define VCLKCON2				0x18
 
 /* SHADOWCON */

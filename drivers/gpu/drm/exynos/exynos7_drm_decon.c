@@ -8,6 +8,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/component.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
@@ -41,6 +42,13 @@ struct decon_data {
 	unsigned int vidw_buf_start_base;
 	unsigned int shadowcon_win_protect_shift;
 	unsigned int wincon_burstlen_shift;
+	/*
+	 * Exynos7570 programs VCLKCON1 as a fractional divider:
+	 * vclk_out = vclk_in * denom / num, both a 10-bit field.
+	 */
+	bool vclk_frac;
+	/* the bootloader leaves the output running for its splash screen */
+	bool keep_bootloader_output;
 };
 
 static struct decon_data exynos7_decon_data = {
@@ -53,6 +61,14 @@ static struct decon_data exynos7870_decon_data = {
 	.vidw_buf_start_base = 0x880,
 	.shadowcon_win_protect_shift = 8,
 	.wincon_burstlen_shift = 10,
+};
+
+static const struct decon_data exynos7570_decon_data = {
+	.vidw_buf_start_base = 0x880,
+	.shadowcon_win_protect_shift = 8,
+	.wincon_burstlen_shift = 10,
+	.vclk_frac = true,
+	.keep_bootloader_output = true,
 };
 
 struct decon_context {
@@ -71,6 +87,9 @@ struct decon_context {
 	bool				i80_if;
 	wait_queue_head_t		wait_vsync_queue;
 	atomic_t			wait_vsync_event;
+	/* output left running by the bootloader, not taken over yet */
+	bool				handover;
+	bool				handover_done;
 
 	const struct decon_data *data;
 	struct drm_encoder *encoder;
@@ -84,6 +103,10 @@ static const struct of_device_id decon_driver_dt_match[] = {
 	{
 		.compatible = "samsung,exynos7870-decon",
 		.data = &exynos7870_decon_data,
+	},
+	{
+		.compatible = "samsung,exynos7570-decon",
+		.data = &exynos7570_decon_data,
 	},
 	{},
 };
@@ -200,6 +223,38 @@ static u32 decon_calc_clkdiv(struct decon_context *ctx,
 	return (clkdiv < 0x100) ? clkdiv : 0xff;
 }
 
+/*
+ * On Exynos7570 the DECON VCLK divider is fractional: the register holds a
+ * 10-bit numerator and a 10-bit denominator and
+ * vclk_out = vclk_in * denom / num. The downstream vendor driver uses
+ * e.g. num = 1024, denom = 418. Reproduce that: pick the largest denominator
+ * that still fits the numerator in 10 bits.
+ */
+static void decon_set_vclk_frac(struct decon_context *ctx,
+		const struct drm_display_mode *mode)
+{
+	unsigned long vclk_rate = clk_get_rate(ctx->vclk);
+	unsigned long ideal_clk = mode->clock * 1000;
+	unsigned long val;
+	u32 denom, num;
+
+	if (vclk_rate <= ideal_clk) {
+		/* cannot divide down; pass through at full rate */
+		num = 1;
+		denom = 1;
+	} else {
+		/* num = denom * vclk_rate / ideal must fit 10 bits */
+		denom = min_t(u32, 1023, ((u64)1023 * ideal_clk) / vclk_rate);
+		num = DIV_ROUND_CLOSEST_ULL((u64)denom * vclk_rate, ideal_clk);
+		num = min(num, 1023U);
+	}
+
+	val = VCLKCON1_VCLKDENOM_VALUE(denom - 1) |
+	      VCLKCON1_VCLKNUM_VALUE(num - 1);
+	writel(val, ctx->regs + VCLKCON1);
+	writel(val, ctx->regs + VCLKCON2);
+}
+
 static void decon_commit(struct exynos_drm_crtc *crtc)
 {
 	struct decon_context *ctx = crtc->ctx;
@@ -251,10 +306,14 @@ static void decon_commit(struct exynos_drm_crtc *crtc)
 	writel(val, ctx->regs + VIDCON0);
 
 	clkdiv = decon_calc_clkdiv(ctx, mode);
-	if (clkdiv > 1) {
-		val = VCLKCON1_CLKVAL_NUM_VCLK(clkdiv - 1);
-		writel(val, ctx->regs + VCLKCON1);
-		writel(val, ctx->regs + VCLKCON2);
+	if (!ctx->data->vclk_frac) {
+		if (clkdiv > 1) {
+			val = VCLKCON1_CLKVAL_NUM_VCLK(clkdiv - 1);
+			writel(val, ctx->regs + VCLKCON1);
+			writel(val, ctx->regs + VCLKCON2);
+		}
+	} else {
+		decon_set_vclk_frac(ctx, mode);
 	}
 
 	val = readl(ctx->regs + DECON_UPDATE);
@@ -411,6 +470,28 @@ static void decon_update_plane(struct exynos_drm_crtc *crtc,
 	unsigned int pitch = fb->pitches[0];
 	unsigned int vidw_addr0_base = ctx->data->vidw_buf_start_base;
 
+	if (ctx->handover) {
+		int t;
+
+		/*
+		 * The bootloader's output is still running. Like the vendor
+		 * driver, stop it while the window is set up and start it
+		 * again afterwards: a window enabled in a running stream gets
+		 * its DMA late, which shifts every frame sideways.
+		 */
+		val = readl(ctx->regs + VIDCON0);
+		writel(val & ~VIDCON0_ENVID_F, ctx->regs + VIDCON0);
+		val = readl(ctx->regs + DECON_UPDATE);
+		writel(val | DECON_UPDATE_STANDALONE_F, ctx->regs + DECON_UPDATE);
+		for (t = 0; t < 3000; t++) {
+			if (!(readl(ctx->regs + VIDCON0) & VIDCON0_DECON_STOP_STATUS))
+				break;
+			udelay(10);
+		}
+		if (t == 3000)
+			DRM_DEV_ERROR(ctx->dev, "DECON did not stop\n");
+	}
+
 	/*
 	 * SHADOWCON/PRTCON register is used for enabling timing.
 	 *
@@ -489,6 +570,14 @@ static void decon_update_plane(struct exynos_drm_crtc *crtc,
 	val = readl(ctx->regs + DECON_UPDATE);
 	val |= DECON_UPDATE_STANDALONE_F;
 	writel(val, ctx->regs + DECON_UPDATE);
+
+	if (ctx->handover) {
+		ctx->handover = false;
+		val = readl(ctx->regs + VIDCON0);
+		writel(val | VIDCON0_ENVID | VIDCON0_ENVID_F, ctx->regs + VIDCON0);
+		val = readl(ctx->regs + DECON_UPDATE);
+		writel(val | DECON_UPDATE_STANDALONE_F, ctx->regs + DECON_UPDATE);
+	}
 }
 
 static void decon_disable_plane(struct exynos_drm_crtc *crtc,
@@ -546,6 +635,21 @@ static void decon_atomic_enable(struct exynos_drm_crtc *crtc)
 	ret = pm_runtime_resume_and_get(ctx->dev);
 	if (ret < 0) {
 		DRM_DEV_ERROR(ctx->dev, "failed to enable DECON device.\n");
+		return;
+	}
+
+	/*
+	 * The bootloader leaves DECON scanning out its splash screen. Keep it
+	 * running as it is until the first plane update (see
+	 * decon_update_plane()): DSIM and panel depend on its pixel stream.
+	 */
+	if (ctx->data->keep_bootloader_output && !ctx->handover_done &&
+	    (readl(ctx->regs + VIDCON0) & VIDCON0_ENVID)) {
+		ctx->handover_done = true;
+		ctx->handover = true;
+		dev_info(ctx->dev, "keeping the output the bootloader set up\n");
+		if (test_and_clear_bit(0, &ctx->irq_flags))
+			decon_enable_vblank(ctx->crtc);
 		return;
 	}
 
