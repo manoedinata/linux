@@ -461,12 +461,12 @@ static const struct samsung_div_clock dispaud_div_clks[] __initconst = {
 };
 
 static const struct samsung_gate_clock dispaud_gate_clks[] __initconst = {
-	GATE(CLK_GOUT_DISPAUD_BUS, "gout_dispaud_bus", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 0, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_BUS, "gout_dispaud_bus", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 0, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_DISPAUD_BUS_VPP, "gout_dispaud_bus_vpp", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 1, 0, 0),
-	GATE(CLK_GOUT_DISPAUD_BUS_DISP, "gout_dispaud_bus_disp", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 2, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_BUS_DISP, "gout_dispaud_bus_disp", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 2, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_DISPAUD_BUS_PPMU, "gout_dispaud_bus_ppmu", "mout_dispaud_bus_user", CLK_ENABLE_CLK_DISPAUD_BUS, 3, 0, 0),
-	GATE(CLK_GOUT_DISPAUD_APB, "gout_dispaud_apb", "dout_dispaud_apb", CLK_ENABLE_CLK_DISPAUD_APB, 0, 0, 0),
-	GATE(CLK_GOUT_DISPAUD_APB_DISP, "gout_dispaud_apb_disp", "dout_dispaud_apb", CLK_ENABLE_CLK_DISPAUD_APB, 1, 0, 0),
+	GATE(CLK_GOUT_DISPAUD_APB, "gout_dispaud_apb", "dout_dispaud_apb", CLK_ENABLE_CLK_DISPAUD_APB, 0, CLK_IS_CRITICAL, 0),
+	GATE(CLK_GOUT_DISPAUD_APB_DISP, "gout_dispaud_apb_disp", "dout_dispaud_apb", CLK_ENABLE_CLK_DISPAUD_APB, 1, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_DISPAUD_DECON_VCLK, "gout_dispaud_decon_vclk", "dout_dispaud_decon_vclk", CLK_ENABLE_CLK_DISPAUD_DECON_INT_VCLK, 0, 0, 0),
 	GATE(CLK_GOUT_DISPAUD_MIPIPHY_TXBYTECLKHS, "gout_dispaud_mipiphy_txbyteclkhs", "mout_dispaud_mipiphy_txbyteclkhs_user", CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_TXBYTECLKHS, 0, 0, 0),
 	GATE(CLK_GOUT_DISPAUD_MIPIPHY_RXCLKESC0, "gout_dispaud_mipiphy_rxclkesc0", "mout_dispaud_mipiphy_rxclkesc0_user", CLK_ENABLE_CLKPHY_DISPAUD_MIPIPHY_RXCLKESC0, 0, 0, 0),
