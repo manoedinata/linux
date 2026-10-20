@@ -30,6 +30,7 @@ enum samsung_dsim_type {
 	DSIM_TYPE_EXYNOS5422,
 	DSIM_TYPE_EXYNOS5433,
 	DSIM_TYPE_EXYNOS7870,
+	DSIM_TYPE_EXYNOS7570,
 	DSIM_TYPE_IMX8MM,
 	DSIM_TYPE_IMX8MP,
 	DSIM_TYPE_COUNT,
@@ -109,6 +110,7 @@ struct samsung_dsim {
 	struct clk *pll_clk;
 	struct regulator_bulk_data supplies[2];
 	int irq;
+	bool adopted;
 	struct gpio_desc *te_gpio;
 
 	u32 pll_clk_rate;
