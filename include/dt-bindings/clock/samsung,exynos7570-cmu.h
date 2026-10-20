@@ -50,15 +50,21 @@
 #define CLK_MOUT_MIF_CMU_PERI_USI_1                      41
 #define CLK_DOUT_MIF_CMU_PERI_USI_1                      42
 #define CLK_GOUT_MIF_CMU_PERI_USI_1                      43
-#define CLK_GOUT_MIF_PDMA0_ACLK                          44
-#define CLK_GOUT_MIF_SPEEDY_PCLK                         45
-#define CLK_GOUT_MIF_SPEEDY_CLK                          46
-#define CLK_GOUT_MIF_ADC_PCLK_S0                         47
-#define CLK_GOUT_MIF_ADC_PCLK_S1                         48
-#define CLK_GOUT_MIF_ADC_OSC_SYS                         49
-#define CLK_GOUT_MIF_GPIO_PCLK                           50
-#define CLK_GOUT_MIF_SYSREG_PCLK                         51
-#define MIF_NR_CLK                                       52
+#define CLK_MOUT_MIF_CMU_DISPAUD_BUS                     44
+#define CLK_DOUT_MIF_CMU_DISPAUD_BUS                     45
+#define CLK_GOUT_MIF_CMU_DISPAUD_BUS                     46
+#define CLK_MOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK          47
+#define CLK_DOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK          48
+#define CLK_GOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK          49
+#define CLK_GOUT_MIF_PDMA0_ACLK                          50
+#define CLK_GOUT_MIF_SPEEDY_PCLK                         51
+#define CLK_GOUT_MIF_SPEEDY_CLK                          52
+#define CLK_GOUT_MIF_ADC_PCLK_S0                         53
+#define CLK_GOUT_MIF_ADC_PCLK_S1                         54
+#define CLK_GOUT_MIF_ADC_OSC_SYS                         55
+#define CLK_GOUT_MIF_GPIO_PCLK                           56
+#define CLK_GOUT_MIF_SYSREG_PCLK                         57
+#define MIF_NR_CLK                                       58
 
 /* CMU_FSYS */
 #define CLK_FRAT_FSYS_USB20DRD_PHYCLOCK                  1
@@ -117,5 +123,25 @@
 #define CLK_GOUT_PERI_GPIO_ALIVE_PCLK                    38
 #define CLK_GOUT_PERI_SYSREG_PCLK                        39
 #define PERI_NR_CLK                                      40
+
+/* CMU_DISPAUD */
+#define CLK_FRAT_DISPAUD_MIPIPHY_TXBYTECLKHS             1
+#define CLK_FRAT_DISPAUD_MIPIPHY_RXCLKESC0               2
+#define CLK_MOUT_DISPAUD_BUS_USER                        3
+#define CLK_MOUT_DISPAUD_DECON_VCLK_USER                 4
+#define CLK_MOUT_DISPAUD_MIPIPHY_TXBYTECLKHS_USER        5
+#define CLK_MOUT_DISPAUD_MIPIPHY_RXCLKESC0_USER          6
+#define CLK_DOUT_DISPAUD_APB                             7
+#define CLK_DOUT_DISPAUD_DECON_VCLK                      8
+#define CLK_GOUT_DISPAUD_BUS                             9
+#define CLK_GOUT_DISPAUD_BUS_VPP                         10
+#define CLK_GOUT_DISPAUD_BUS_DISP                        11
+#define CLK_GOUT_DISPAUD_BUS_PPMU                        12
+#define CLK_GOUT_DISPAUD_APB                             13
+#define CLK_GOUT_DISPAUD_APB_DISP                        14
+#define CLK_GOUT_DISPAUD_DECON_VCLK                      15
+#define CLK_GOUT_DISPAUD_MIPIPHY_TXBYTECLKHS             16
+#define CLK_GOUT_DISPAUD_MIPIPHY_RXCLKESC0               17
+#define DISPAUD_NR_CLK                                   18
 
 #endif /* _DT_BINDINGS_CLOCK_EXYNOS7570_H */
