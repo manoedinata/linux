@@ -25,6 +25,7 @@ properties:
       - items:
           - enum:
               - allwinner,sun50i-h6-mali
+              - samsung,exynos7570-mali
           - const: arm,mali-t720
       - items:
           - enum:
