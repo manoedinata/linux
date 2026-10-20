@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/samsung,ea8061s.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Samsung EA8061S AMOLED DSI panel
+
+maintainers:
+  - Hendra Manudinata <manoedinata@gmail.com>
+
+description:
+  720x1280 AMOLED panel with a Samsung EA8061S driver IC in MIPI DSI video
+  mode, as found in the Samsung Galaxy J4 (SM-J400F).
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: samsung,ea8061s
+
+  reg:
+    maxItems: 1
+
+  vddio-supply:
+    description: 1.8 V I/O supply of the panel
+
+  enable-gpios:
+    maxItems: 1
+    description: Enables the 3.0 V load switch that powers the panel
+
+  reset-gpios: true
+
+  samsung,keep-bootloader-state:
+    type: boolean
+    description:
+      The bootloader powered, reset and initialised the panel and its video
+      stream is running. The first prepare() does not power-cycle or
+      re-initialise it, since the panel locks to a stream that starts while
+      it is being initialised. Later power cycles do a full initialisation.
+
+required:
+  - compatible
+  - reg
+  - vddio-supply
+  - enable-gpios
+  - reset-gpios
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    dsi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        panel@0 {
+            compatible = "samsung,ea8061s";
+            reg = <0>;
+            samsung,keep-bootloader-state;
+
+            vddio-supply = <&ldo20_reg>;
+            enable-gpios = <&gpd1 0 GPIO_ACTIVE_HIGH>;
+            reset-gpios = <&gpd2 0 GPIO_ACTIVE_HIGH>;
+        };
+    };
