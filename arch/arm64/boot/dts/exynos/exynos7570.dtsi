@@ -318,6 +318,34 @@
 			power-domains = <&pd_dispaud>;
 		};
 
+		pd_g3d: power-domain@11c84000 {
+			compatible = "samsung,exynos5433-pd";
+			reg = <0x11c84000 0x20>;
+			#power-domain-cells = <0>;
+			label = "G3D";
+		};
+
+		cmu_g3d: clock-controller@11460000 {
+			compatible = "samsung,exynos7570-cmu-g3d";
+			reg = <0x11460000 0x1000>;
+			#clock-cells = <1>;
+
+			clock-names = "oscclk", "bus";
+			clocks = <&oscclk>, <&cmu_mif CLK_GOUT_MIF_CMU_G3D>;
+			power-domains = <&pd_g3d>;
+		};
+
+		gpu: gpu@11400000 {
+			compatible = "samsung,exynos7570-mali", "arm,mali-t720";
+			reg = <0x11400000 0x5000>;
+			interrupts = <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "job", "mmu", "gpu";
+			clocks = <&cmu_g3d CLK_GOUT_G3D_CLK>;
+			power-domains = <&pd_g3d>;
+		};
+
 		syscon_disp: system-controller@148f100c {
 			compatible = "samsung,exynos7570-disp-sysreg", "syscon";
 			reg = <0x148f100c 0x04>;
