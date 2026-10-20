@@ -28,6 +28,7 @@ properties:
       - samsung,exynos7570-cmu-fsys
       - samsung,exynos7570-cmu-peri
       - samsung,exynos7570-cmu-dispaud
+      - samsung,exynos7570-cmu-g3d
 
   clocks:
     minItems: 1
@@ -71,7 +72,28 @@ allOf:
           minItems: 3
         clock-names:
           minItems: 3
-    else:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: samsung,exynos7570-cmu-g3d
+    then:
+      properties:
+        clocks:
+          minItems: 2
+          maxItems: 2
+        clock-names:
+          minItems: 2
+          maxItems: 2
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - samsung,exynos7570-cmu-mif
+              - samsung,exynos7570-cmu-fsys
+              - samsung,exynos7570-cmu-peri
+    then:
       properties:
         clocks:
           maxItems: 1

@@ -64,7 +64,10 @@
 #define CLK_GOUT_MIF_ADC_OSC_SYS                         55
 #define CLK_GOUT_MIF_GPIO_PCLK                           56
 #define CLK_GOUT_MIF_SYSREG_PCLK                         57
-#define MIF_NR_CLK                                       58
+#define CLK_MOUT_MIF_CMU_G3D                             58
+#define CLK_DOUT_MIF_CMU_G3D                             59
+#define CLK_GOUT_MIF_CMU_G3D                             60
+#define MIF_NR_CLK                                       61
 
 /* CMU_FSYS */
 #define CLK_FRAT_FSYS_USB20DRD_PHYCLOCK                  1
@@ -143,5 +146,12 @@
 #define CLK_GOUT_DISPAUD_MIPIPHY_TXBYTECLKHS             16
 #define CLK_GOUT_DISPAUD_MIPIPHY_RXCLKESC0               17
 #define DISPAUD_NR_CLK                                   18
+
+/* CMU_G3D */
+#define CLK_MOUT_G3D_USER                                1
+#define CLK_DOUT_G3D_BUS                                 2
+#define CLK_DOUT_G3D_APB                                 3
+#define CLK_GOUT_G3D_CLK                                 4
+#define G3D_NR_CLK                                       5
 
 #endif /* _DT_BINDINGS_CLOCK_EXYNOS7570_H */
