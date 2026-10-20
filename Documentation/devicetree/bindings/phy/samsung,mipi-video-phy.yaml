@@ -29,6 +29,7 @@ properties:
       - samsung,s5pv210-mipi-video-phy
       - samsung,exynos5420-mipi-video-phy
       - samsung,exynos5433-mipi-video-phy
+      - samsung,exynos7570-mipi-video-phy
       - samsung,exynos7870-mipi-video-phy
 
   "#phy-cells":
