@@ -213,6 +213,38 @@ static const struct mipi_phy_device_desc exynos5433_mipi_phy = {
 	},
 };
 
+/*
+ * Exynos7570: same PMU and display SYSREG layout as the Exynos7870, but no
+ * camera SYSREG phandle in the DT. Only the DSIM0 PHY is usable; the CSIS0
+ * slot is kept so the DSIM0 index stays 1 as on the Exynos7870.
+ */
+static const struct mipi_phy_device_desc exynos7570_mipi_phy = {
+	.num_regmaps = 2,
+	.regmap_names = {
+		"samsung,pmu-syscon",
+		"samsung,disp-sysreg",
+	},
+	.num_phys = 2,
+	.phys = {
+		{
+			/* EXYNOS_MIPI_PHY_ID_CSIS0, unused */
+			.coupled_phy_id = EXYNOS_MIPI_PHY_ID_DSIM0,
+			.enable_val = EXYNOS4_PHY_ENABLE,
+			.enable_reg = EXYNOS7870_MIPI_PHY_CONTROL0,
+			.enable_map = EXYNOS_MIPI_REGMAP_PMU,
+		}, {
+			/* EXYNOS_MIPI_PHY_ID_DSIM0 */
+			.coupled_phy_id = EXYNOS_MIPI_PHY_ID_CSIS0,
+			.enable_val = EXYNOS4_PHY_ENABLE,
+			.enable_reg = EXYNOS7870_MIPI_PHY_CONTROL0,
+			.enable_map = EXYNOS_MIPI_REGMAP_PMU,
+			.resetn_val = BIT(0),
+			.resetn_reg = 0,
+			.resetn_map = EXYNOS_MIPI_REGMAP_DISP,
+		},
+	},
+};
+
 static const struct mipi_phy_device_desc exynos7870_mipi_phy = {
 	.num_regmaps = 3,
 	.regmap_names = {
@@ -403,6 +435,9 @@ static const struct of_device_id exynos_mipi_video_phy_of_match[] = {
 	}, {
 		.compatible = "samsung,exynos7870-mipi-video-phy",
 		.data = &exynos7870_mipi_phy,
+	}, {
+		.compatible = "samsung,exynos7570-mipi-video-phy",
+		.data = &exynos7570_mipi_phy,
 	},
 	{ /* sentinel */ },
 };
