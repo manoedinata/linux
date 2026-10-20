@@ -392,8 +392,9 @@
 			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
 			#iommu-cells = <0>;
 
-			clocks = <&cmu_dispaud CLK_GOUT_DISPAUD_BUS>;
-			clock-names = "sysmmu";
+			clocks = <&cmu_dispaud CLK_GOUT_DISPAUD_BUS_DISP>,
+				 <&cmu_dispaud CLK_GOUT_DISPAUD_APB_DISP>;
+			clock-names = "aclk", "pclk";
 
 			power-domains = <&pd_dispaud>;
 		};
