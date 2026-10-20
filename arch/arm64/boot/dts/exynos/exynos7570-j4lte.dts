@@ -15,21 +15,7 @@
 	chassis-type = "handset";
 
 	chosen {
-		#address-cells = <2>;
-		#size-cells = <1>;
-		ranges;
-
-		bootargs = "console=tty0 fbcon=map:1 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p25 rootfstype=ext4";
-
-		/* Set up by the bootloader (uniLoader), scanned out by DECON */
-		framebuffer0: framebuffer@67000000 {
-			compatible = "simple-framebuffer";
-			reg = <0x0 0x67000000 (720 * 1280 * 4)>;
-			width = <720>;
-			height = <1280>;
-			stride = <(720 * 4)>;
-			format = "a8r8g8b8";
-		};
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p25 rootfstype=ext4";
 	};
 
 	/*
