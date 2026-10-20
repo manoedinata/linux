@@ -15,7 +15,7 @@
 	chassis-type = "handset";
 
 	chosen {
-		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p25 rootfstype=ext4";
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p18 rootfstype=ext4";
 	};
 
 	/*
