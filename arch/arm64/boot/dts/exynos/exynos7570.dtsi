@@ -129,6 +129,15 @@
 			clocks = <&oscclk>;
 		};
 
+		/* AP <-> CP (modem) mailbox; its MIF APB gate is left on by the boot loader */
+		mailbox_cp: mailbox@10500000 {
+			compatible = "samsung,exynos-shd-ipc-mailbox";
+			reg = <0x10500000 0x180>;
+			interrupts = <GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
+			mcu,name = "mcu_ipc_cp";
+			mcu,id = <0>;
+		};
+
 		speedy: speedy@10510000 {
 			compatible = "samsung,exynos7570-speedy";
 			reg = <0x10510000 0x2000>;
