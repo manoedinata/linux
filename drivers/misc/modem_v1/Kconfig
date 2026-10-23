@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config SAMSUNG_MODEM_V1
+	tristate "Samsung Shannon modem interface (downstream modem_v1)"
+	depends on ARM64 && OF && HAVE_ARM_SMCCC
+	depends on ARCH_EXYNOS || COMPILE_TEST
+	select MFD_SYSCON
+	help
+	  The modem interface of Samsung's downstream kernels for the
+	  Exynos7570's Shannon modem (SS305AP) over shared memory, as on the
+	  Galaxy J4: the CP mailbox (mcu_ipc), the shared memory layout
+	  (shm_ipc), the secure-boot CP control and the SIPC5 link with its
+	  io devices (/dev/umts_boot0, umts_ipc0/1, umts_rfs0, rmnet0-7).
+	  Userspace boots and drives the modem with libsamsung-ipc
+	  (samsungipcd).
+
+	  To compile this as a module, choose M here: the module will be
+	  called modem_if.
