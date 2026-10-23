@@ -179,7 +179,7 @@ static int calc_m_rgb_voltages(struct dynamic_aid_info d_aid, int ibr)
 
 	output_voltages = d_aid.output_voltages;
 	point_voltages = d_aid.point_voltages;
-	m_gray = &((int(*)[d_aid.iv_max])d_aid.param.m_gray)[ibr][0];
+	m_gray = (int *)d_aid.param.m_gray + ibr * d_aid.iv_max;
 	m_voltage = d_aid.m_voltage;
 	iv = d_aid.iv_max - 1;
 
@@ -212,10 +212,10 @@ static int calc_gamma(struct dynamic_aid_info d_aid, int ibr, int *result)
 	int numerator, denominator;
 	s64 t1, t2, vb;
 	int *vd, *mtp, *res;
-	struct rgb_t (*offset_color)[d_aid.iv_max];
+	struct rgb_t *offset_color;
 	struct rgb64_t *m_voltage;
 
-	offset_color = (struct rgb_t(*)[])d_aid.param.offset_color;
+	offset_color = (struct rgb_t *)d_aid.param.offset_color;
 	m_voltage = d_aid.m_voltage;
 	iv = d_aid.iv_max - 1;
 	ret = 0;
@@ -240,7 +240,7 @@ static int calc_gamma(struct dynamic_aid_info d_aid, int ibr, int *result)
 			res[c] -= mtp[c];
 
 			if (offset_color)
-				res[c] += offset_color[ibr][iv].rgb[c];
+				res[c] += offset_color[ibr * d_aid.iv_max + iv].rgb[c];
 
 			res[c] = (res[c] < 0) ? 0 : res[c];
 
