@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+# Samsung Shannon modem interface (downstream modem_v1 + mcu_ipc + shm_ipc), Exynos7570
+obj-m += modem_if.o
+modem_if-y := modem_main.o modem_variation.o modem_io_device.o modem_utils.o \
+	      link_device_shmem.o link_device_memory_snapshot.o \
+	      link_device_memory_flow_control.o link_device_memory_debug.o \
+	      link_device_memory_sbd.o modem_notifier.o modem_ctrl_ss310ap.o \
+	      mcu_ipc.o shm_ipc.o pmu-cp.o
+ccflags-y += -I$(src)/inc -include $(src)/compat.h
