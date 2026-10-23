@@ -29,6 +29,7 @@
 
 #include "modem_prj.h"
 #include "modem_utils.h"
+#include "modem_variation.h"
 #include "link_device_memory.h"
 
 #include <linux/modem_notifier.h>

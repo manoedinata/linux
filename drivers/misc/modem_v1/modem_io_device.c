@@ -557,6 +557,7 @@ static unsigned int misc_poll(struct file *filp, struct poll_table_struct *wait)
 				return 0;
 		}
 		/* fall through, if sim_state has been changed */
+		fallthrough;
 	case STATE_CRASH_EXIT:
 	case STATE_CRASH_RESET:
 	case STATE_NV_REBUILDING:

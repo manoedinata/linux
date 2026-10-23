@@ -57,10 +57,10 @@ static inline void hrtimer_setup(struct hrtimer *timer,
 #define PM_QOS_BUS_THROUGHPUT_MAX		0
 #define PM_QOS_DEVICE_THROUGHPUT		0
 #define PM_QOS_BUS_THROUGHPUT_MAX_DEFAULT_VALUE	0
-#define pm_qos_add_request(req, class, val)	do { } while (0)
-#define pm_qos_update_request(req, val)		do { } while (0)
-#define pm_qos_remove_request(req)		do { } while (0)
-#define pm_qos_request_active(req)		0
+#define pm_qos_add_request(req, class, val)	do { (void)(req); (void)(class); (void)(val); } while (0)
+#define pm_qos_update_request(req, val)		do { (void)(req); (void)(val); } while (0)
+#define pm_qos_remove_request(req)		do { (void)(req); } while (0)
+#define pm_qos_request_active(req)		((void)(req), 0)
 
 /* the legacy GPIO sysfs export is gone; the J4 exports no modem GPIOs */
 #define gpio_export(gpio, dir)			(-ENOSYS)

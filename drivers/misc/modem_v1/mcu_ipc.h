@@ -10,18 +10,15 @@
  * option) any later version.
 */
 
-#ifndef MCU_IPC_H
-#define MCU_IPC_H
+#ifndef MCU_IPC_DRV_H
+#define MCU_IPC_DRV_H
 
 /* FIXME: will be removed */
 /* Shared register with 64 * 32 words */
 #define MAX_MBOX_NUM	64
 
-enum mcu_ipc_region {
-	MCU_CP,
-	MCU_GNSS,
-	MCU_MAX,
-};
+/* enum mcu_ipc_region comes from the public header */
+#include <linux/mcu_ipc.h>
 
 struct mcu_ipc_ipc_handler {
 	void *data;

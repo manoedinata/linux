@@ -20,6 +20,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
 
+#include <linux/mcu_ipc.h>
+
 #include "regs-mcu_ipc.h"
 #include "mcu_ipc.h"
 

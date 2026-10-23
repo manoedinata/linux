@@ -40,6 +40,7 @@
 
 #include "modem_prj.h"
 #include "modem_utils.h"
+#include "modem_variation.h"
 #include "link_device_memory.h"
 #include "link_ctrlmsg_iosm.h"
 #include <linux/modem_notifier.h>
@@ -267,7 +268,7 @@ static void shmem_handle_cp_crash(struct mem_link_device *mld,
 	purge_txq(mld);
 
 	if (cp_online(mc))
-		modem_notify_event(state);
+		modem_notify_event((enum modem_event)state);
 
 	if (cp_online(mc) || cp_booting(mc))
 		set_modem_state(mld, state);
@@ -1679,7 +1680,8 @@ static int rx_ipc_frames_from_rb(struct sbd_ring_buffer *rb)
 	return rcvd;
 }
 
-int mem_netdev_poll(struct napi_struct *napi, int budget)
+#ifdef CONFIG_LINK_DEVICE_NAPI
+static int mem_netdev_poll(struct napi_struct *napi, int budget)
 {
 	int rcvd;
 	struct vnet *vnet = netdev_priv(napi->dev);
@@ -1700,6 +1702,7 @@ int mem_netdev_poll(struct napi_struct *napi, int budget)
 
 	return rcvd;
 }
+#endif
 
 static int recv_sbd_ipc_frames(struct mem_link_device *mld,
 				struct mem_snapshot *mst)
@@ -1912,6 +1915,7 @@ static int shmem_send(struct link_device *ld, struct io_device *iod,
 			wait_for_completion(&ld->raw_tx_resumed);
 			mif_info("TX resumed done.\n");
 		}
+		fallthrough;
 
 	case IPC_RFS:
 	case IPC_FMT:

@@ -279,14 +279,14 @@ enum iod_rx_state {
 	MAX_IOD_RX_STATE
 };
 
-static const char const *rx_state_string[] = {
+static const char * const rx_state_string[] = {
 	[IOD_RX_ON_STANDBY]	= "RX_ON_STANDBY",
 	[IOD_RX_HEADER]		= "RX_HEADER",
 	[IOD_RX_PAYLOAD]	= "RX_PAYLOAD",
 	[IOD_RX_PADDING]	= "RX_PADDING",
 };
 
-static const inline char *rx_state(enum iod_rx_state state)
+static inline const char *rx_state(enum iod_rx_state state)
 {
 	if (unlikely(state >= MAX_IOD_RX_STATE))
 		return "INVALID_STATE";
@@ -740,5 +740,9 @@ static inline bool rx_possible(struct modem_ctl *mc)
 
 int sipc5_init_io_device(struct io_device *iod);
 void sipc5_deinit_io_device(struct io_device *iod);
+
+/* exported by modem_ctrl_ss310ap.c for other drivers */
+int ss310ap_force_crash_exit_ext(void);
+u32 ss310ap_get_evs_mode_ext(void);
 
 #endif

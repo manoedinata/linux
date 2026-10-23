@@ -494,8 +494,8 @@ void log_ipc_pkt(u8 ch, enum ipc_layer layer, enum direction dir,
 int pr_buffer(const char *tag, const char *data, size_t data_len,
 							size_t max_len)
 {
-	size_t len = min(data_len, max_len);
-	unsigned char str[len ? len * 3 : 1]; /* 1 <= sizeof <= max_len*3 */
+	size_t len = min3(data_len, max_len, (size_t)PR_BUFFER_MAX);
+	unsigned char str[PR_BUFFER_MAX * 3];
 	dump2hex(str, (len ? len * 3 : 1), data, len);
 
 	/* don't change this printk to mif_debug for print this as level7 */
@@ -681,7 +681,7 @@ void stop_net_ifaces(struct link_device *ld)
 	unsigned long flags;
 	spin_lock_irqsave(&ld->netif_lock, flags);
 
-	if (!atomic_read(&ld->netif_stopped) > 0) {
+	if (!atomic_read(&ld->netif_stopped)) {
 		if (ld->msd)
 			netif_tx_flowctl(ld->msd, true);
 

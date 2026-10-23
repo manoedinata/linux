@@ -108,14 +108,14 @@ enum ipc_layer {
 	MAX_SIPC_LAYER
 };
 
-static const char const *sipc_layer_string[] = {
+static const char * const sipc_layer_string[] = {
 	[LINK] = "LNK",
 	[IODEV] = "IOD",
 	[APP] = "APP",
 	[MAX_SIPC_LAYER] = "INVALID"
 };
 
-static const inline char *layer_str(enum ipc_layer layer)
+static inline const char *layer_str(enum ipc_layer layer)
 {
 	if (unlikely(layer >= MAX_SIPC_LAYER))
 		return "INVALID";
@@ -123,7 +123,7 @@ static const inline char *layer_str(enum ipc_layer layer)
 		return sipc_layer_string[layer];
 }
 
-static const char const *dev_format_string[] = {
+static const char * const dev_format_string[] = {
 	[IPC_FMT]	= "FMT",
 	[IPC_RAW]	= "RAW",
 	[IPC_RFS]	= "RFS",
@@ -134,7 +134,7 @@ static const char const *dev_format_string[] = {
 	[IPC_DEBUG]	= "DEBUG",
 };
 
-static const inline char *dev_str(enum dev_format dev)
+static inline const char *dev_str(enum dev_format dev)
 {
 	if (unlikely(dev >= MAX_DEV_FORMAT))
 		return "INVALID";
@@ -147,12 +147,12 @@ static inline enum direction opposite(enum direction dir)
 	return (dir == TX) ? RX : TX;
 }
 
-static const char const *direction_string[] = {
+static const char * const direction_string[] = {
 	[TX] = "TX",
 	[RX] = "RX"
 };
 
-static const inline char *dir_str(enum direction dir)
+static inline const char *dir_str(enum direction dir)
 {
 	if (unlikely(dir >= MAX_DIR))
 		return "INVALID";
@@ -160,12 +160,12 @@ static const inline char *dir_str(enum direction dir)
 		return direction_string[dir];
 }
 
-static const char const *udl_string[] = {
+static const char * const udl_string[] = {
 	[UL] = "UL",
 	[DL] = "DL"
 };
 
-static const inline char *udl_str(enum direction dir)
+static inline const char *udl_str(enum direction dir)
 {
 	if (unlikely(dir >= ULDL))
 		return "INVALID";
@@ -173,12 +173,12 @@ static const inline char *udl_str(enum direction dir)
 		return udl_string[dir];
 }
 
-static const char const *q_direction_string[] = {
+static const char * const q_direction_string[] = {
 	[TX] = "TXQ",
 	[RX] = "RXQ"
 };
 
-static const inline char *q_dir(enum direction dir)
+static inline const char *q_dir(enum direction dir)
 {
 	if (unlikely(dir >= MAX_DIR))
 		return "INVALID";
@@ -186,12 +186,12 @@ static const inline char *q_dir(enum direction dir)
 		return q_direction_string[dir];
 }
 
-static const char const *ipc_direction_string[] = {
+static const char * const ipc_direction_string[] = {
 	[TX] = "AP->CP",
 	[RX] = "AP<-CP"
 };
 
-static const inline char *ipc_dir(enum direction dir)
+static inline const char *ipc_dir(enum direction dir)
 {
 	if (unlikely(dir >= MAX_DIR))
 		return "INVALID";
@@ -199,12 +199,12 @@ static const inline char *ipc_dir(enum direction dir)
 		return ipc_direction_string[dir];
 }
 
-static const char const *arrow_direction[] = {
+static const char * const arrow_direction[] = {
 	[TX] = "->",
 	[RX] = "<-"
 };
 
-static const inline char *arrow(enum direction dir)
+static inline const char *arrow(enum direction dir)
 {
 	if (unlikely(dir >= MAX_DIR))
 		return "><";
@@ -212,7 +212,7 @@ static const inline char *arrow(enum direction dir)
 		return arrow_direction[dir];
 }
 
-static const char const *modem_state_string[] = {
+static const char * const modem_state_string[] = {
 	[STATE_OFFLINE]		= "OFFLINE",
 	[STATE_CRASH_RESET]	= "CRASH_RESET",
 	[STATE_CRASH_EXIT]	= "CRASH_EXIT",
@@ -225,12 +225,12 @@ static const char const *modem_state_string[] = {
 	[STATE_CRASH_WATCHDOG]	= "WDT_RESET",
 };
 
-static const inline char *cp_state_str(enum modem_state state)
+static inline const char *cp_state_str(enum modem_state state)
 {
 	return modem_state_string[state];
 }
 
-static const inline char *mc_state(struct modem_ctl *mc)
+static inline const char *mc_state(struct modem_ctl *mc)
 {
 	return cp_state_str(mc->phone_state);
 }
@@ -326,6 +326,9 @@ void log_ipc_pkt(u8 ch, enum ipc_layer layer, enum direction dir,
 		 struct sk_buff *skb, u8 *hdr);
 
 /* print buffer as hex string */
+/* most bytes pr_buffer() prints */
+#define PR_BUFFER_MAX 16
+
 int pr_buffer(const char *tag, const char *data, size_t data_len,
 							size_t max_len);
 
