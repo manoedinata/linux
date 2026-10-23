@@ -151,6 +151,15 @@ static int shmem_reset_ipc_link(struct mem_link_device *mld)
 		dev->req_ack_cnt[RX] = 0;
 	}
 
+	/*
+	 * A CP crash stopped the queues of the open rmnet devices
+	 * (stop_net_ifaces(), or vnet_xmit() while the CP was offline).
+	 * Downstream only cleared the flag here, so rmnet stayed stopped after
+	 * a CP restart until the interface was taken down and up again; wake
+	 * them with the link.
+	 */
+	if (ld->msd)
+		netif_tx_flowctl(ld->msd, false);
 	atomic_set(&ld->netif_stopped, 0);
 
 	set_magic(mld, MEM_IPC_MAGIC);
