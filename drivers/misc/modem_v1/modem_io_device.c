@@ -563,11 +563,11 @@ static unsigned int misc_poll(struct file *filp, struct poll_table_struct *wait)
 	case STATE_CRASH_WATCHDOG:
 		/* report crash only if iod is fmt/boot device */
 		if (iod->format == IPC_FMT) {
-			mif_err("%s: %s.state == %s\n", iod->name, mc->name,
+			mif_err_limited("%s: %s.state == %s\n", iod->name, mc->name,
 				mc_state(mc));
 			return POLLHUP;
 		} else if (iod->format == IPC_BOOT || sipc5_boot_ch(iod->id)) {
-			mif_err("%s: %s.state == %s\n", iod->name, mc->name,
+			mif_err_limited("%s: %s.state == %s\n", iod->name, mc->name,
 				mc_state(mc));
 			return POLLHUP;
 		} else if (iod->format == IPC_DUMP || sipc5_dump_ch(iod->id)) {
@@ -576,7 +576,7 @@ static unsigned int misc_poll(struct file *filp, struct poll_table_struct *wait)
 			else
 				return 0;
 		} else {
-			mif_err("%s: %s.state == %s\n", iod->name, mc->name,
+			mif_err_limited("%s: %s.state == %s\n", iod->name, mc->name,
 				mc_state(mc));
 
 			/* give delay to prevent infinite sys_poll call from
