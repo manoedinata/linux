@@ -2341,12 +2341,59 @@ exit_with_start_stop_mutex:
 	return r;
 }
 
+/* push the additional IEs (cached WPA/WMM + vendor IEs) of one frame type */
+static int slsi_ap_update_info_ies(struct slsi_dev *sdev, struct net_device *dev, u16 purpose,
+				   const u8 *ies, size_t ies_len)
+{
+	struct netdev_vif *ndev_vif = netdev_priv(dev);
+	int               r;
+
+	r = slsi_ap_prepare_add_info_ies(ndev_vif, ies, ies_len);
+	if (r)
+		return r;
+	r = slsi_mlme_add_info_elements(sdev, dev, purpose, ndev_vif->ap.add_info_ies, ndev_vif->ap.add_info_ies_len);
+	slsi_clear_cached_ies(&ndev_vif->ap.add_info_ies, &ndev_vif->ap.add_info_ies_len);
+	return r;
+}
+
+/*
+ * Downstream did not implement this (-EOPNOTSUPP) and Android's hostapd
+ * never needed it; OpenWrt's updates the beacon now and then and logs
+ * "Failed to set beacon parameters" each time. The firmware builds the
+ * beacon itself from MLME-START, the host only adds IEs to it, so update
+ * those like slsi_start_ap() sets them; the rest of the beacon (head, HT
+ * operation, ...) cannot change without restarting the AP.
+ */
 static int slsi_change_beacon(struct wiphy *wiphy, struct net_device *dev,
 		       struct cfg80211_beacon_data *info)
 {
-	SLSI_UNUSED_PARAMETER(info);
+	struct slsi_dev   *sdev = SDEV_FROM_WIPHY(wiphy);
+	struct netdev_vif *ndev_vif = netdev_priv(dev);
+	int               r = 0;
 
-	return -EOPNOTSUPP;
+	SLSI_MUTEX_LOCK(ndev_vif->vif_mutex);
+	if (!ndev_vif->activated || ndev_vif->vif_type != FAPI_VIFTYPE_AP) {
+		r = -EINVAL;
+		goto exit;
+	}
+
+	if (info->beacon_ies) {
+		r = slsi_ap_update_info_ies(sdev, dev, FAPI_PURPOSE_BEACON, info->beacon_ies, info->beacon_ies_len);
+		if (r)
+			goto exit;
+	}
+	if (info->proberesp_ies) {
+		r = slsi_ap_update_info_ies(sdev, dev, FAPI_PURPOSE_PROBE_RESPONSE, info->proberesp_ies, info->proberesp_ies_len);
+		if (r)
+			goto exit;
+	}
+	if (info->assocresp_ies)
+		r = slsi_ap_update_info_ies(sdev, dev, FAPI_PURPOSE_ASSOCIATION_RESPONSE, info->assocresp_ies, info->assocresp_ies_len);
+exit:
+	if (r)
+		SLSI_NET_ERR(dev, "change_beacon failed: %d\n", r);
+	SLSI_MUTEX_UNLOCK(ndev_vif->vif_mutex);
+	return r;
 }
 
 static int slsi_stop_ap(struct wiphy *wiphy, struct net_device *dev)
