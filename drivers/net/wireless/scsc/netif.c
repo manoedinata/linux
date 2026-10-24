@@ -1216,6 +1216,55 @@ exit_with_error:
 	return ret;
 }
 
+/*
+ * OpenWrt's wifi-scripts reuse a down interface of a fullmac phy for a new
+ * one (rename + NL80211_CMD_SET_INTERFACE) instead of deleting and adding,
+ * so an AP netdev in the hotspot slot can become the station and the other
+ * way round. The firmware rejects a station vif on the hotspot slot (and
+ * the driver expects it on SLSI_NET_INDEX_WLAN), so move the netdev to the
+ * slot of its new type when that slot is free.
+ */
+int slsi_netif_move_slot(struct slsi_dev *sdev, struct net_device *dev, enum nl80211_iftype type)
+{
+	struct netdev_vif *ndev_vif = netdev_priv(dev);
+	int               from = ndev_vif->ifnum;
+	int               to;
+
+	if (type == NL80211_IFTYPE_STATION)
+		to = SLSI_NET_INDEX_WLAN;
+	else if (type == NL80211_IFTYPE_AP)
+		to = SLSI_NET_INDEX_P2PX_SWLAN;
+	else
+		return 0;
+
+	/* only an interface with no firmware vif (not activated; the caller
+	 * checks) moves: it can be up, wifi-scripts reuse a stopped AP whose
+	 * carrier is off but which is still IFF_UP
+	 */
+	if (from == to || (from != SLSI_NET_INDEX_WLAN && from != SLSI_NET_INDEX_P2PX_SWLAN))
+		return 0;
+
+	SLSI_MUTEX_LOCK(sdev->netdev_add_remove_mutex);
+	if (sdev->netdev[to]) {
+		SLSI_MUTEX_UNLOCK(sdev->netdev_add_remove_mutex);
+		return 0;
+	}
+
+	SLSI_NET_INFO(dev, "move from vif slot %d to %d\n", from, to);
+	if (from == SLSI_NET_INDEX_P2PX_SWLAN && sdev->netdev_ap == dev)
+		rcu_assign_pointer(sdev->netdev_ap, NULL);
+	rcu_assign_pointer(sdev->netdev[from], NULL);
+	ndev_vif->ifnum = to;
+	rcu_assign_pointer(sdev->netdev[to], dev);
+	synchronize_rcu();
+
+	if (to == SLSI_NET_INDEX_WLAN)
+		sdev->wlan_unsync_vif_state = WLAN_UNSYNC_NO_VIF;
+	/* the MAC stays: wpa_supplicant/hostapd already use the netdev's */
+	SLSI_MUTEX_UNLOCK(sdev->netdev_add_remove_mutex);
+	return 0;
+}
+
 int slsi_netif_dynamic_iface_add(struct slsi_dev *sdev, const char *name, enum nl80211_iftype type)
 {
 	int index = -EINVAL;

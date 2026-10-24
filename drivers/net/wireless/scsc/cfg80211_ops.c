@@ -133,6 +133,9 @@ static int slsi_change_virtual_intf(struct wiphy *wiphy,
 
 	SLSI_UNUSED_PARAMETER(flags);
 
+	if (!ndev_vif->activated)
+		slsi_netif_move_slot(SDEV_FROM_WIPHY(wiphy), dev, type);
+
 	SLSI_MUTEX_LOCK(ndev_vif->vif_mutex);
 
 	SLSI_NET_DBG1(dev, SLSI_CFG80211, "type:%u, iftype:%d\n", type, ndev_vif->iftype);
