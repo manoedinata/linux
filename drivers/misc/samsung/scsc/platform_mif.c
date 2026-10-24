@@ -12,6 +12,7 @@
 
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/platform_device.h>
 #include <linux/moduleparam.h>
 #include <linux/iommu.h>
@@ -1109,35 +1110,24 @@ cont:
 	}
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "platform->reg_start %lx size %x base %p\n", (uintptr_t)platform->reg_start, (u32)platform->reg_size, platform->base);
 
-	/* Get the 3 IRQ resources */
+	/* Get the 3 IRQs; OF platform devices no longer carry IRQ resources */
 	for (i = 0; i < 3; i++) {
-		struct resource *irq_res;
-		int             irqtag;
+		static const char * const irq_names[] = {
+			[PLATFORM_MIF_MBOX] = "MBOX",
+			[PLATFORM_MIF_ALIVE] = "ALIVE",
+			[PLATFORM_MIF_WDOG] = "WDOG",
+		};
+		int irq = platform_get_irq_byname(pdev, irq_names[i]);
 
-		irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
-		if (!irq_res) {
-			SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev, "No IRQ resource at index %d\n", i);
-			err = -ENOENT;
+		if (irq < 0) {
+			SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev, "No %s IRQ\n", irq_names[i]);
+			err = irq;
 			goto error_exit;
 		}
-
-		if (!strcmp(irq_res->name, "MBOX")) {
-			SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "MBOX irq %d flag 0x%x\n", (u32)irq_res->start, (u32)irq_res->flags);
-			irqtag = PLATFORM_MIF_MBOX;
-		} else if (!strcmp(irq_res->name, "ALIVE")) {
-			SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "ALIVE irq %d flag 0x%x\n", (u32)irq_res->start, (u32)irq_res->flags);
-			irqtag = PLATFORM_MIF_ALIVE;
-		} else if (!strcmp(irq_res->name, "WDOG")) {
-			SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "WDOG irq %d flag 0x%x\n", (u32)irq_res->start, (u32)irq_res->flags);
-			irqtag = PLATFORM_MIF_WDOG;
-		} else {
-			SCSC_TAG_ERR_DEV(PLAT_MIF, &pdev->dev, "Invalid irq res name: %s\n",
-				irq_res->name);
-			err = -EINVAL;
-			goto error_exit;
-		}
-		platform->wlbt_irq[irqtag].irq_num = irq_res->start;
-		platform->wlbt_irq[irqtag].flags = (irq_res->flags & IRQF_TRIGGER_MASK);
+		platform->wlbt_irq[i].irq_num = irq;
+		platform->wlbt_irq[i].flags = irq_get_trigger_type(irq);
+		SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "%s irq %d flag 0x%x\n", irq_names[i], irq,
+				  platform->wlbt_irq[i].flags);
 	}
 
 	/* PMU reg map - syscon */
