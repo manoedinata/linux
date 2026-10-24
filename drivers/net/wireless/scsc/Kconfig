@@ -149,7 +149,6 @@ config SCSC_WLAN_ACM_API
 	help
 	  This option provides API to read TSF.
 
-endif
 
 config SCSC_WLAN_MAC_ADDRESS_FILENAME
 	string "MAC address filename"
@@ -269,3 +268,5 @@ config SCSC_WLAN_DUAL_STATION
         default n
         help
         This option tells if dual station feature is supported or not.
+
+endif # SCSC_WLAN
