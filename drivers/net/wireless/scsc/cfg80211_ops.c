@@ -3475,7 +3475,9 @@ struct slsi_dev                           *slsi_cfg80211_new(struct device *dev)
 
 	/* Allow changing of the netns, if NOT set then no changes are allowed */
 	wiphy->flags |= WIPHY_FLAG_NETNS_OK;
-	wiphy->flags |= WIPHY_FLAG_PS_ON_BY_DEFAULT;
+	/* cfg80211's (iw's) power save default follows the driver's */
+	if (slsi_power_save_default())
+		wiphy->flags |= WIPHY_FLAG_PS_ON_BY_DEFAULT;
 	wiphy->flags |= WIPHY_FLAG_CONTROL_PORT_PROTOCOL;
 
 	/* wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;

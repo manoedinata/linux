@@ -1142,12 +1142,9 @@ static int slsi_netif_add_locked(struct slsi_dev *sdev, const char *name, int if
 	}
 
 	/* The default power mode in host*/
-	if (slsi_is_rf_test_mode_enabled()) {
+	if (slsi_is_rf_test_mode_enabled())
 		SLSI_NET_ERR(dev, "*#rf# rf test mode set is enabled.\n");
-		ndev_vif->set_power_mode = FAPI_POWERMANAGEMENTMODE_ACTIVE_MODE;
-	} else {
-		ndev_vif->set_power_mode = FAPI_POWERMANAGEMENTMODE_POWER_SAVE;
-	}
+	ndev_vif->set_power_mode = slsi_default_power_mode();
 
 	INIT_LIST_HEAD(&ndev_vif->sta.network_map);
 	SLSI_DBG1(sdev, SLSI_NETDEV, "ifnum=%d\n", ndev_vif->ifnum);

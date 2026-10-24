@@ -535,6 +535,8 @@ int slsi_test_send_hanged_vendor_event(struct net_device *dev);
 #endif
 void slsi_wlan_dump_public_action_subtype(struct slsi_dev *sdev, struct ieee80211_mgmt *mgmt, bool tx);
 void slsi_reset_channel_flags(struct slsi_dev *sdev);
+bool slsi_power_save_default(void);
+u16 slsi_default_power_mode(void);
 
 /* Sysfs based mac address override */
 void slsi_create_sysfs_macaddr(void);

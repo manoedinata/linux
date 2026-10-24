@@ -47,6 +47,25 @@
 #include "scsc_wlbtd.h"
 #endif
 
+/* Station power save (downstream: always on; the firmware dozes between
+ * beacons). Off by default here, for latency; power_save=1 restores it.
+ */
+static bool power_save;
+module_param(power_save, bool, 0444);
+MODULE_PARM_DESC(power_save, "Station power save by default (0: off, the default; 1: on)");
+
+bool slsi_power_save_default(void)
+{
+	return power_save;
+}
+
+u16 slsi_default_power_mode(void)
+{
+	if (slsi_is_rf_test_mode_enabled())
+		return FAPI_POWERMANAGEMENTMODE_ACTIVE_MODE;
+	return power_save ? FAPI_POWERMANAGEMENTMODE_POWER_SAVE : FAPI_POWERMANAGEMENTMODE_ACTIVE_MODE;
+}
+
 #define CSR_WIFI_SME_MIB2_HOST_PSID_MASK    0x8000
 #define SLSI_DEFAULT_HW_MAC_ADDR    "\x00\x00\x0F\x11\x22\x33"
 #define MX_WLAN_FILE_PATH_LEN_MAX (128)
@@ -2264,13 +2283,9 @@ void slsi_vif_deactivated(struct slsi_dev *sdev, struct net_device *dev)
 
 	/* MUST be done last as lots of code is dependent on checking the vif_type */
 	ndev_vif->vif_type = SLSI_VIFTYPE_UNSPECIFIED;
-	ndev_vif->set_power_mode = FAPI_POWERMANAGEMENTMODE_POWER_SAVE;
-	if (slsi_is_rf_test_mode_enabled()) {
+	if (slsi_is_rf_test_mode_enabled())
 		SLSI_NET_ERR(dev, "*#rf# rf test mode set is enabled.\n");
-		ndev_vif->set_power_mode = FAPI_POWERMANAGEMENTMODE_ACTIVE_MODE;
-	} else {
-		ndev_vif->set_power_mode = FAPI_POWERMANAGEMENTMODE_POWER_SAVE;
-	}
+	ndev_vif->set_power_mode = slsi_default_power_mode();
 	ndev_vif->mgmt_tx_data.exp_frame = SLSI_PA_INVALID;
 
 	/* SHOULD have cleared any peer records */
