@@ -73,3 +73,4 @@ obj-$(CONFIG_NSM)		+= nsm.o
 obj-$(CONFIG_MARVELL_CN10K_DPI)	+= mrvl_cn10k_dpi.o
 obj-y				+= keba/
 obj-$(CONFIG_SAMSUNG_MODEM_V1)	+= modem_v1/
+obj-$(CONFIG_SCSC_CORE)		+= samsung/scsc/
