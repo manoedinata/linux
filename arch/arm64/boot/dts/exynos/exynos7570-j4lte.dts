@@ -91,7 +91,7 @@
 			no-map;
 		};
 
-		wifibt@79000000 {
+		wlbt_rmem: wifibt@79000000 {
 			reg = <0x0 0x79000000 0x400000>;
 			no-map;
 		};
@@ -135,6 +135,12 @@
 	no-sd;
 	no-sdio;
 
+	status = "okay";
+};
+
+/* the USB PLL (usbpll,owner) is left to the AP for now */
+&wlbt {
+	memory-region = <&wlbt_rmem>;
 	status = "okay";
 };
 
