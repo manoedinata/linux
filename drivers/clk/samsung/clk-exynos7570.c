@@ -547,7 +547,13 @@ static const struct samsung_cmu_info g3d_cmu_info __initconst = {
  * firmware the AP owns it: select the 26 MHz reference, enable it, hand the
  * ownership to the AP and start the AFC (same steps and 20 us delay as the
  * downstream pwrcal / SCSC code, usbpll,owner = "y", usbpll,udelay = <20>).
+ *
+ * Once the WLBT firmware runs, it stops the PLL (and so the USB PHY) unless
+ * the AP requests it in USBPLL_CON0, even with the AP as the owner. The
+ * downstream pwrcal sets that request with the USB clock; so does prepare.
  */
+#define USBPLL_CON0_OFFSET	0x1000
+#define USBPLL_AP2WIFI_REQ	BIT(0)	/* 1: the AP needs the PLL running */
 #define USBPLL_CON1_OFFSET	0x1004
 #define USBPLL_WPLL_SEL		BIT(0)	/* 1: AP owns the PLL, 0: WLBT */
 #define USBPLL_WPLL_EN		BIT(1)
@@ -557,6 +563,7 @@ static const struct samsung_cmu_info g3d_cmu_info __initconst = {
 
 struct exynos7570_wpll {
 	struct clk_hw hw;
+	void __iomem *con0;
 	void __iomem *con1;
 };
 
@@ -565,8 +572,11 @@ struct exynos7570_wpll {
 static int exynos7570_wpll_prepare(struct clk_hw *hw)
 {
 	struct exynos7570_wpll *wpll = to_wpll(hw);
-	u32 val = readl(wpll->con1);
+	u32 val;
 
+	writel(readl(wpll->con0) | USBPLL_AP2WIFI_REQ, wpll->con0);
+
+	val = readl(wpll->con1);
 	if ((val & (USBPLL_WPLL_SEL | USBPLL_WPLL_EN)) ==
 	    (USBPLL_WPLL_SEL | USBPLL_WPLL_EN))
 		return 0;
@@ -588,9 +598,11 @@ static int exynos7570_wpll_prepare(struct clk_hw *hw)
 
 static int exynos7570_wpll_is_prepared(struct clk_hw *hw)
 {
-	u32 val = readl(to_wpll(hw)->con1);
+	struct exynos7570_wpll *wpll = to_wpll(hw);
+	u32 val = readl(wpll->con1);
 
-	return (val & (USBPLL_WPLL_SEL | USBPLL_WPLL_EN)) ==
+	return (readl(wpll->con0) & USBPLL_AP2WIFI_REQ) &&
+	       (val & (USBPLL_WPLL_SEL | USBPLL_WPLL_EN)) ==
 	       (USBPLL_WPLL_SEL | USBPLL_WPLL_EN);
 }
 
@@ -630,6 +642,7 @@ static void __init exynos7570_register_wpll(struct device *dev)
 		return;
 	}
 
+	wpll->con0 = base + USBPLL_CON0_OFFSET;
 	wpll->con1 = base + USBPLL_CON1_OFFSET;
 	wpll->hw.init = &init;
 
