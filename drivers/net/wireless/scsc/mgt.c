@@ -767,16 +767,20 @@ struct net_device *slsi_dynamic_interface_create(struct wiphy        *wiphy,
 
 	ndev_vif = netdev_priv(dev);
 
-	err = slsi_netif_register_rtlnl_locked(sdev, dev);
-	if (err)
-		return NULL;
-
+	/* Before registering: cfg80211 marks a non-4addr station netdev
+	 * IFF_DONT_BRIDGE when it is registered, so an AP registered as the
+	 * default station type could not join a bridge (OpenWrt's br-lan).
+	 */
 	SLSI_MUTEX_LOCK(ndev_vif->vif_mutex);
 	ndev_vif->iftype = type;
 	dev->ieee80211_ptr->iftype = type;
 	if (params)
 		dev->ieee80211_ptr->use_4addr = params->use_4addr;
 	SLSI_MUTEX_UNLOCK(ndev_vif->vif_mutex);
+
+	err = slsi_netif_register_rtlnl_locked(sdev, dev);
+	if (err)
+		return NULL;
 
 	return dev;
 }

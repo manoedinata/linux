@@ -1475,6 +1475,12 @@ static int slsi_set_qos_map(struct wiphy *wiphy, struct net_device *dev, struct 
 
 	SLSI_MUTEX_LOCK(ndev_vif->vif_mutex);
 
+	/* hostapd sets a QoS map while bringing up an AP and fails on an
+	 * error; the driver only maps on a station, so ignore it there.
+	 */
+	if (ndev_vif->iftype == NL80211_IFTYPE_AP || ndev_vif->iftype == NL80211_IFTYPE_P2P_GO)
+		goto exit;
+
 	if (!ndev_vif->activated) {
 		r = -EINVAL;
 		goto exit;
@@ -3239,10 +3245,17 @@ static struct ieee80211_rate       wifi_11a_rates[] = {
 
 static struct ieee80211_sta_ht_cap slsi_ht_cap = {
 	.ht_supported       = true,
+	/*
+	 * Until the firmware runs, cfg80211 reports these; slsi_start()
+	 * replaces them with the firmware's (0x016f on the J4's S610). Keep
+	 * them equal: OpenWrt builds hostapd's ht_capab from the phy before
+	 * the AP starts the firmware, and hostapd rejects a config asking for
+	 * more (RX-STBC123, GF) than the firmware's capabilities then allow.
+	 */
 	.cap                = IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
 			      IEEE80211_HT_CAP_LDPC_CODING |
-			      IEEE80211_HT_CAP_RX_STBC |
-			      IEEE80211_HT_CAP_GRN_FLD |
+			      IEEE80211_HT_CAP_SM_PS |
+			      (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT) |
 			      IEEE80211_HT_CAP_SGI_20 |
 			      IEEE80211_HT_CAP_SGI_40,
 	.ampdu_factor       = IEEE80211_HT_MAX_AMPDU_64K,
