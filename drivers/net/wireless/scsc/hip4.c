@@ -723,11 +723,12 @@ static bool slsi_check_rx_flowcontrol(struct slsi_dev *sdev)
 	struct netdev_vif *ndev_vif;
 	int qlen = 0;
 
-	ndev_vif = netdev_priv(sdev->netdev[SLSI_NET_INDEX_WLAN]);
-	if (ndev_vif)
-		qlen = skb_queue_len(&ndev_vif->rx_data.queue);
-
 	SLSI_MUTEX_LOCK(sdev->netdev_remove_mutex);
+	/* wlan0 can be deleted (del_virtual_intf, e.g. by OpenWrt's netifd) */
+	if (sdev->netdev[SLSI_NET_INDEX_WLAN]) {
+		ndev_vif = netdev_priv(sdev->netdev[SLSI_NET_INDEX_WLAN]);
+		qlen = skb_queue_len(&ndev_vif->rx_data.queue);
+	}
 #if defined(SLSI_NET_INDEX_P2PX_SWLAN)
 	if (sdev->netdev[SLSI_NET_INDEX_P2PX_SWLAN]) {
 		ndev_vif = netdev_priv(sdev->netdev[SLSI_NET_INDEX_P2PX_SWLAN]);

@@ -1219,12 +1219,24 @@ exit_with_error:
 	return ret;
 }
 
-int slsi_netif_dynamic_iface_add(struct slsi_dev *sdev, const char *name)
+int slsi_netif_dynamic_iface_add(struct slsi_dev *sdev, const char *name, enum nl80211_iftype type)
 {
 	int index = -EINVAL;
 	int err;
 
 	SLSI_MUTEX_LOCK(sdev->netdev_add_remove_mutex);
+
+	/*
+	 * A station in place of a deleted wlan0 (OpenWrt's netifd deletes the
+	 * interfaces of a phy and adds its own) takes wlan0's slot: much of the
+	 * driver expects the station on SLSI_NET_INDEX_WLAN.
+	 */
+	if (type == NL80211_IFTYPE_STATION && !sdev->netdev[SLSI_NET_INDEX_WLAN]) {
+		err = slsi_netif_add_locked(sdev, name, SLSI_NET_INDEX_WLAN);
+		index = err ? err : SLSI_NET_INDEX_WLAN;
+		SLSI_MUTEX_UNLOCK(sdev->netdev_add_remove_mutex);
+		return index;
+	}
 
 #if defined(CONFIG_SCSC_WLAN_MHS_STATIC_INTERFACE) || (defined(SCSC_SEP_VERSION) && SCSC_SEP_VERSION >= 90000)
 	if (sdev->netdev[SLSI_NET_INDEX_P2PX_SWLAN] == sdev->netdev_ap) {

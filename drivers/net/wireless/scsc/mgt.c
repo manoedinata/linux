@@ -759,7 +759,7 @@ struct net_device *slsi_dynamic_interface_create(struct wiphy        *wiphy,
 
 	SLSI_DBG1(sdev, SLSI_CFG80211, "name:%s\n", name);
 
-	iface = slsi_netif_dynamic_iface_add(sdev, name);
+	iface = slsi_netif_dynamic_iface_add(sdev, name, type);
 	if (iface < 0)
 		return NULL;
 
