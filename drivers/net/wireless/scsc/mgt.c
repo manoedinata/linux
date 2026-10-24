@@ -630,10 +630,8 @@ int slsi_start(struct slsi_dev *sdev)
 			memcpy(sdev->device_config.domain_info.regdomain->alpha2, alpha2, 2);
 
 			/* Read the regulatory params for the country*/
-			if (slsi_read_regulatory_rules(sdev, &sdev->device_config.domain_info, alpha2) == 0) {
-				slsi_reset_channel_flags(sdev);
-				wiphy_apply_custom_regulatory(sdev->wiphy, sdev->device_config.domain_info.regdomain);
-			}
+			if (slsi_read_regulatory_rules(sdev, &sdev->device_config.domain_info, alpha2) == 0)
+				slsi_apply_regd(sdev, false, false);
 		}
 	/* Do nothing for unifiDefaultCountry == world_domain */
 
@@ -809,8 +807,12 @@ static void slsi_stop_chip(struct slsi_dev *sdev)
 		kfree(sdev->collect_mib.file[i].data);
 #endif
 
-	slsi_reset_channel_flags(sdev);
-	slsi_regd_init(sdev);
+	/*
+	 * Downstream reset the channel flags and re-applied the world regdomain
+	 * here. This runs with rtnl held (ndo_stop, del_virtual_intf) and
+	 * wiphy_apply_custom_regulatory() takes rtnl itself on current kernels:
+	 * a deadlock. Keep the flags of the regdomain in force instead.
+	 */
 	sdev->device_state = SLSI_DEVICE_STATE_STOPPING;
 
 	slsi_sm_wlan_service_stop(sdev);
@@ -2873,8 +2875,7 @@ static void slsi_band_cfg_update(struct slsi_dev *sdev, int band)
 	default:
 		break;
 	}
-	wiphy_apply_custom_regulatory(sdev->wiphy, sdev->device_config.domain_info.regdomain);
-	slsi_update_supported_channels_regd_flags(sdev);
+	slsi_apply_regd(sdev, true, false);
 }
 
 int slsi_band_update(struct slsi_dev *sdev, int band)
@@ -5290,11 +5291,8 @@ int slsi_set_country_update_regd(struct slsi_dev *sdev, const char *alpha2_code,
 	}
 
 	/* Read the regulatory params for the country */
-	if (slsi_read_regulatory_rules(sdev, &sdev->device_config.domain_info, alpha2) == 0) {
-		slsi_reset_channel_flags(sdev);
-		wiphy_apply_custom_regulatory(sdev->wiphy, sdev->device_config.domain_info.regdomain);
-		slsi_update_supported_channels_regd_flags(sdev);
-	}
+	if (slsi_read_regulatory_rules(sdev, &sdev->device_config.domain_info, alpha2) == 0)
+		slsi_apply_regd(sdev, true, false);
 
 exit:
 	SLSI_MUTEX_UNLOCK(sdev->device_config_mutex);

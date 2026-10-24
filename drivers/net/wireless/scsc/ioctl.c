@@ -2562,7 +2562,7 @@ static int slsi_get_regulatory(struct net_device *dev, char *buf, int buf_len)
 		return -ENOMEM;
 }
 
-static void slsi_disable_ch12_13(struct slsi_dev *sdev)
+void slsi_disable_ch12_13(struct slsi_dev *sdev)
 {
 	struct wiphy *wiphy = sdev->wiphy;
 	struct ieee80211_channel *chan;
@@ -2624,13 +2624,9 @@ static int slsi_set_fcc_channel(struct net_device *dev, char *cmd, int cmd_len)
 		} else {
 			memcpy(sdev->device_config.domain_info.regdomain->alpha2, alpha2, 2);
 			/* Read the regulatory params for the country.*/
-			if (slsi_read_regulatory_rules(sdev, &sdev->device_config.domain_info, alpha2) == 0) {
-				slsi_reset_channel_flags(sdev);
-				wiphy_apply_custom_regulatory(sdev->wiphy, sdev->device_config.domain_info.regdomain);
-				slsi_update_supported_channels_regd_flags(sdev);
-				if (fcc_channel_value == 0 && sdev->device_config.disable_ch12_ch13)
-					slsi_disable_ch12_13(sdev);
-			}
+			if (slsi_read_regulatory_rules(sdev, &sdev->device_config.domain_info, alpha2) == 0)
+				slsi_apply_regd(sdev, true, fcc_channel_value == 0 &&
+						sdev->device_config.disable_ch12_ch13);
 		}
 	}
 	SLSI_MUTEX_UNLOCK(sdev->device_config_mutex);

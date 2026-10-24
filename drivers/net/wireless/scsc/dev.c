@@ -235,6 +235,31 @@ void slsi_regd_init(struct slsi_dev *sdev)
 	wiphy_apply_custom_regulatory(sdev->wiphy, slsi_world_regdom_custom);
 }
 
+/*
+ * wiphy_apply_custom_regulatory() takes rtnl itself on current kernels, and
+ * the downstream callers hold rtnl (ndo_open/ndo_stop, private ioctls) or
+ * the wiphy lock (cfg80211 ops, which nest inside rtnl). Apply the regdomain
+ * in sdev->device_config from a work item instead, without their locks.
+ */
+static void slsi_regd_work(struct work_struct *work)
+{
+	struct slsi_dev *sdev = container_of(work, struct slsi_dev, regd_work);
+
+	slsi_reset_channel_flags(sdev);
+	wiphy_apply_custom_regulatory(sdev->wiphy, sdev->device_config.domain_info.regdomain);
+	if (READ_ONCE(sdev->regd_work_update_channels))
+		slsi_update_supported_channels_regd_flags(sdev);
+	if (READ_ONCE(sdev->regd_work_disable_ch12_13))
+		slsi_disable_ch12_13(sdev);
+}
+
+void slsi_apply_regd(struct slsi_dev *sdev, bool update_channels, bool disable_ch12_13)
+{
+	WRITE_ONCE(sdev->regd_work_update_channels, update_channels);
+	WRITE_ONCE(sdev->regd_work_disable_ch12_13, disable_ch12_13);
+	schedule_work(&sdev->regd_work);
+}
+
 struct slsi_dev *slsi_dev_attach(struct device *dev, struct scsc_mx *core, struct scsc_service_client *mx_wlan_client)
 {
 	struct slsi_dev *sdev;
@@ -254,6 +279,7 @@ struct slsi_dev *slsi_dev_attach(struct device *dev, struct scsc_mx *core, struc
 	SLSI_MUTEX_INIT(sdev->netdev_remove_mutex);
 	SLSI_MUTEX_INIT(sdev->start_stop_mutex);
 	SLSI_MUTEX_INIT(sdev->device_config_mutex);
+	INIT_WORK(&sdev->regd_work, slsi_regd_work);
 	SLSI_MUTEX_INIT(sdev->logger_mutex);
 
 	sdev->dev = dev;
@@ -486,6 +512,7 @@ void slsi_dev_detach(struct slsi_dev *sdev)
 	SLSI_DBG1(sdev, SLSI_INIT_DEINIT, "Remove Device\n");
 
 	slsi_stop(sdev);
+	cancel_work_sync(&sdev->regd_work);
 
 #ifdef CONFIG_SCSC_WLAN_KIC_OPS
 	wifi_kic_unregister();

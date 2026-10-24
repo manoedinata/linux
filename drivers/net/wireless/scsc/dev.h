@@ -1032,6 +1032,10 @@ struct slsi_dev {
 	struct mutex               device_config_mutex;
 #endif
 	struct slsi_dev_config     device_config;
+	/* slsi_apply_regd(): the regdomain is applied from a work item */
+	struct work_struct         regd_work;
+	bool                       regd_work_update_channels;
+	bool                       regd_work_disable_ch12_13;
 
 	struct notifier_block      inetaddr_notifier;
 #ifndef CONFIG_SCSC_WLAN_BLOCK_IPV6
@@ -1187,6 +1191,8 @@ int slsi_dev_get_scan_result_count(void);
 bool slsi_dev_llslogs_supported(void);
 int slsi_dev_nan_supported(struct slsi_dev *sdev);
 void slsi_regd_init(struct slsi_dev *sdev);
+void slsi_apply_regd(struct slsi_dev *sdev, bool update_channels, bool disable_ch12_13);
+void slsi_disable_ch12_13(struct slsi_dev *sdev);
 bool slsi_dev_rtt_supported(void);
 
 static inline u16 slsi_tx_host_tag(struct slsi_dev *sdev, enum slsi_traffic_q tq)
