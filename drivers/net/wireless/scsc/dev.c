@@ -361,6 +361,14 @@ struct slsi_dev *slsi_dev_attach(struct device *dev, struct scsc_mx *core, struc
 	slsi_nl80211_vendor_init(sdev);
 #endif
 
+	/* User space takes the interface addresses from the wiphy address
+	 * (OpenWrt: /sys/class/ieee80211/phyN/macaddress). Leave it zero
+	 * while the MAC address file cannot be read yet (EFS not mounted),
+	 * rather than publish a random address.
+	 */
+	if (slsi_get_hw_mac_address(sdev, sdev->hw_addr))
+		SLSI_ETHER_COPY(sdev->wiphy->perm_addr, sdev->hw_addr);
+
 	if (slsi_cfg80211_register(sdev) != 0) {
 		SLSI_ERR(sdev, "failed to register with cfg80211\n");
 		goto err_udi_proc_init;

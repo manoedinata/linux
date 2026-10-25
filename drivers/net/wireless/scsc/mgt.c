@@ -221,7 +221,8 @@ struct sk_buff *slsi_dequeue_cached_scan_result(struct slsi_scan *scan, int *cou
 	return skb;
 }
 
-void slsi_get_hw_mac_address(struct slsi_dev *sdev, u8 *addr)
+/* Returns false when no address was found and a random one is used */
+bool slsi_get_hw_mac_address(struct slsi_dev *sdev, u8 *addr)
 {
 #ifndef SLSI_TEST_DEV
 	const struct firmware *e = NULL;
@@ -247,7 +248,7 @@ void slsi_get_hw_mac_address(struct slsi_dev *sdev, u8 *addr)
 	if (valid) {
 		SLSI_INFO(sdev, "MAC address from modparam: %02X:%02X:%02X:%02X:%02X:%02X\n",
 			  u[0], u[1], u[2], u[3], u[4], u[5]);
-		return;
+		return true;
 	}
 
 	/* Sysfs parameter override */
@@ -267,7 +268,7 @@ mac_sysfs:
 	if (valid) {
 		SLSI_INFO(sdev, "MAC address from sysfs: %02X:%02X:%02X:%02X:%02X:%02X\n",
 			  u[0], u[1], u[2], u[3], u[4], u[5]);
-		return;
+		return true;
 	}
 
 	/* read mac.txt */
@@ -293,7 +294,7 @@ mac_file:
 		for (i = 0; i < ETH_ALEN; i++)
 			addr[i] = u[i] & 0xff;
 		SLSI_INFO(sdev, "MAC address loaded from %s: %02X:%02X:%02X:%02X:%02X:%02X\n", path_name, u[0], u[1], u[2], u[3], u[4], u[5]);
-		return;
+		return true;
 	}
 mac_efs:
 	r = mx140_request_file(sdev->maxwell_core, CONFIG_SCSC_WLAN_MAC_ADDRESS_FILENAME, &e);
@@ -312,7 +313,7 @@ mac_efs:
 		addr[i] = u[i] & 0xff;
 	SLSI_INFO(sdev, "MAC address loaded from %s: %02X:%02X:%02X:%02X:%02X:%02X\n", CONFIG_SCSC_WLAN_MAC_ADDRESS_FILENAME, u[0], u[1], u[2], u[3], u[4], u[5]);
 	mx140_release_file(sdev->maxwell_core, e);
-	return;
+	return true;
 
 mac_default:
 	/* This is safe to call, even if the struct firmware handle is NULL */
@@ -324,13 +325,14 @@ mac_default:
 	get_random_bytes(&addr[3], 3);
 	SLSI_DBG1(sdev, SLSI_INIT_DEINIT,
 		  "MAC addr file NOT found, using default MAC ADDR: %pM\n", addr);
-
+	return false;
 #else
 	/* We use FIXED Mac addresses with the unittest driver */
 	struct slsi_test_dev *uftestdev = (struct slsi_test_dev *)sdev->maxwell_core;
 
 	SLSI_ETHER_COPY(addr, uftestdev->hw_addr);
 	SLSI_DBG1(sdev, SLSI_INIT_DEINIT, "Test Device Address: %pM\n", addr);
+	return true;
 #endif
 }
 
@@ -795,6 +797,11 @@ struct net_device *slsi_dynamic_interface_create(struct wiphy        *wiphy,
 	dev->ieee80211_ptr->iftype = type;
 	if (params)
 		dev->ieee80211_ptr->use_4addr = params->use_4addr;
+	/* The address user space asked for (OpenWrt gives each interface
+	 * its own); slsi_net_open() only fills in a zero address.
+	 */
+	if (params && is_valid_ether_addr(params->macaddr))
+		eth_hw_addr_set(dev, params->macaddr);
 	SLSI_MUTEX_UNLOCK(ndev_vif->vif_mutex);
 
 	err = slsi_netif_register_rtlnl_locked(sdev, dev);

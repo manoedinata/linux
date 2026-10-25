@@ -416,7 +416,7 @@ static inline void slsi_p2p_queue_unsync_vif_del_work(struct netdev_vif *ndev_vi
 void slsi_purge_scan_results(struct netdev_vif *ndev_vif, u16 scan_id);
 void slsi_purge_scan_results_locked(struct netdev_vif *ndev_vif, u16 scan_id);
 struct sk_buff *slsi_dequeue_cached_scan_result(struct slsi_scan *scan, int *count);
-void slsi_get_hw_mac_address(struct slsi_dev *sdev, u8 *addr);
+bool slsi_get_hw_mac_address(struct slsi_dev *sdev, u8 *addr);
 int slsi_start(struct slsi_dev *sdev);
 void slsi_stop_net_dev(struct slsi_dev *sdev, struct net_device *dev);
 void slsi_stop(struct slsi_dev *sdev);

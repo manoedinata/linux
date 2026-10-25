@@ -147,7 +147,9 @@ static int slsi_net_open(struct net_device *dev)
 	}
 
 	if (!sdev->netdev_up_count) {
-		slsi_get_hw_mac_address(sdev, sdev->hw_addr);
+		if (slsi_get_hw_mac_address(sdev, sdev->hw_addr) &&
+		    is_zero_ether_addr(sdev->wiphy->perm_addr))
+			SLSI_ETHER_COPY(sdev->wiphy->perm_addr, sdev->hw_addr);
 
 		/* Assign Addresses */
 		SLSI_ETHER_COPY(sdev->netdev_addresses[SLSI_NET_INDEX_WLAN], sdev->hw_addr);
