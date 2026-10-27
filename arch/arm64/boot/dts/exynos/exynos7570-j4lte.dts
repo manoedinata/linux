@@ -61,6 +61,17 @@
 			no-map;
 		};
 
+		/*
+		 * Firmware memory the downstream DT keeps away from the kernel
+		 * (/memreserve/ 0x7e700000 0x100000 in exynos7570-rmem.dtsi).
+		 * Something outside Linux writes into it at run time: handed
+		 * out as RAM, freed sk_buffs there got 64-byte blocks zeroed.
+		 */
+		firmware@7e700000 {
+			reg = <0x0 0x7e700000 0x100000>;
+			no-map;
+		};
+
 		framebuffer@67000000 {
 			reg = <0x0 0x67000000 (720 * 1280 * 4)>;
 			no-map;
