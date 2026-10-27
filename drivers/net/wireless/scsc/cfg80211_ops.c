@@ -3596,6 +3596,12 @@ struct slsi_dev                           *slsi_cfg80211_new(struct device *dev)
 	wiphy->features |= NL80211_FEATURE_SCHED_SCAN_RANDOM_MAC_ADDR;
 #endif
 #endif
+	/* cfg80211 hands add_virtual_intf the address user space asks for
+	 * only with this; without it an added station got the hardware
+	 * address, the same as an AP's BSSID, and the firmware then gave
+	 * the AP's clients' frames to the station.
+	 */
+	wiphy->features |= NL80211_FEATURE_MAC_ON_CREATE;
 	return sdev;
 }
 
