@@ -19,19 +19,54 @@
 #define EXYNOS_MBOX_INTMR0		0x28	/* Interrupt Mask Register 0 */
 #define EXYNOS_MBOX_INTGR1		0x40	/* Interrupt Generation Register 1 */
 
+#define EXYNOS9610_MBOX_INTGR0		0x08	/* Interrupt Generation Register 0 */
+#define EXYNOS9610_MBOX_INTMR1		0x24	/* Interrupt Mask Register 1 */
+
 #define EXYNOS_MBOX_INTMR0_MASK		GENMASK(15, 0)
 #define EXYNOS_MBOX_INTGR1_MASK		GENMASK(15, 0)
 
 #define EXYNOS_MBOX_CHAN_COUNT		HWEIGHT32(EXYNOS_MBOX_INTGR1_MASK)
 
 /**
+ * struct exynos_mbox_data - per-SoC register layout.
+ * @intgr:		register that rings the remote's doorbell.
+ * @intgr_shift:	position of the channel bits in @intgr.
+ * @intmr:		register masking the remote-to-AP interrupts.
+ * @pclk_optional:	the clock is not described (left running by firmware).
+ */
+struct exynos_mbox_data {
+	unsigned int intgr;
+	unsigned int intgr_shift;
+	unsigned int intmr;
+	bool pclk_optional;
+};
+
+/**
  * struct exynos_mbox - driver's private data.
  * @regs:	mailbox registers base address.
  * @mbox:	pointer to the mailbox controller.
+ * @data:	register layout.
  */
 struct exynos_mbox {
 	void __iomem *regs;
 	struct mbox_controller *mbox;
+	const struct exynos_mbox_data *data;
+};
+
+static const struct exynos_mbox_data gs101_mbox_data = {
+	.intgr = EXYNOS_MBOX_INTGR1,
+	.intmr = EXYNOS_MBOX_INTMR0,
+};
+
+/*
+ * Exynos9610 AP2APM mailbox: the AP rings the APM in the upper half of
+ * INTGR0 and receives in INTSR1, masked by INTMR1.
+ */
+static const struct exynos_mbox_data exynos9610_mbox_data = {
+	.intgr = EXYNOS9610_MBOX_INTGR0,
+	.intgr_shift = 16,
+	.intmr = EXYNOS9610_MBOX_INTMR1,
+	.pclk_optional = true,
 };
 
 static int exynos_mbox_send_data(struct mbox_chan *chan, void *data)
@@ -50,7 +85,8 @@ static int exynos_mbox_send_data(struct mbox_chan *chan, void *data)
 		return -EINVAL;
 	}
 
-	writel(BIT(msg->chan_id), exynos_mbox->regs + EXYNOS_MBOX_INTGR1);
+	writel(BIT(msg->chan_id) << exynos_mbox->data->intgr_shift,
+	       exynos_mbox->regs + exynos_mbox->data->intgr);
 
 	return 0;
 }
@@ -80,7 +116,8 @@ static struct mbox_chan *exynos_mbox_of_xlate(struct mbox_controller *mbox,
 }
 
 static const struct of_device_id exynos_mbox_match[] = {
-	{ .compatible = "google,gs101-mbox" },
+	{ .compatible = "google,gs101-mbox", .data = &gs101_mbox_data },
+	{ .compatible = "samsung,exynos9610-mbox", .data = &exynos9610_mbox_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos_mbox_match);
@@ -106,11 +143,16 @@ static int exynos_mbox_probe(struct platform_device *pdev)
 	if (!chans)
 		return -ENOMEM;
 
+	exynos_mbox->data = of_device_get_match_data(dev);
+
 	exynos_mbox->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(exynos_mbox->regs))
 		return PTR_ERR(exynos_mbox->regs);
 
-	pclk = devm_clk_get_enabled(dev, "pclk");
+	if (exynos_mbox->data->pclk_optional)
+		pclk = devm_clk_get_optional_enabled(dev, "pclk");
+	else
+		pclk = devm_clk_get_enabled(dev, "pclk");
 	if (IS_ERR(pclk))
 		return dev_err_probe(dev, PTR_ERR(pclk),
 				     "Failed to enable clock.\n");
@@ -126,7 +168,7 @@ static int exynos_mbox_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, exynos_mbox);
 
 	/* Mask out all interrupts. We support just polling channels for now. */
-	writel(EXYNOS_MBOX_INTMR0_MASK, exynos_mbox->regs + EXYNOS_MBOX_INTMR0);
+	writel(EXYNOS_MBOX_INTMR0_MASK, exynos_mbox->regs + exynos_mbox->data->intmr);
 
 	return devm_mbox_controller_register(dev, mbox);
 }

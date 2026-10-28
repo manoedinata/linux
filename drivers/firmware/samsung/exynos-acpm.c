@@ -742,6 +742,9 @@ static int acpm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, acpm);
 
+	if (!match_data->acpm_clk_dev_name)
+		return devm_of_platform_populate(dev);
+
 	acpm_clk_pdev = platform_device_register_data(dev,
 						match_data->acpm_clk_dev_name,
 						PLATFORM_DEVID_NONE, NULL, 0);
@@ -881,10 +884,19 @@ static const struct acpm_match_data acpm_gs101 = {
 	.acpm_clk_dev_name = "gs101-acpm-clk",
 };
 
+/* Exynos9610: the framework header sits at APM SRAM + 0x6f00; no clocks */
+static const struct acpm_match_data acpm_exynos9610 = {
+	.initdata_base = 0x6f00,
+};
+
 static const struct of_device_id acpm_match[] = {
 	{
 		.compatible = "google,gs101-acpm-ipc",
 		.data = &acpm_gs101,
+	},
+	{
+		.compatible = "samsung,exynos9610-acpm-ipc",
+		.data = &acpm_exynos9610,
 	},
 	{},
 };
