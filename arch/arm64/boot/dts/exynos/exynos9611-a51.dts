@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Samsung Galaxy A51 (SM-A515F) device tree source
+ *
+ * Early bring-up: the display is the framebuffer S-BOOT leaves running
+ * (uniLoader enables the DECON trigger), logs go to ramoops in the slot the
+ * downstream kernel uses for pstore.
+ */
+
+/dts-v1/;
+#include "exynos9610.dtsi"
+
+/ {
+	model = "Samsung Galaxy A51";
+	compatible = "samsung,a51", "samsung,exynos9610";
+	chassis-type = "handset";
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		/*
+		 * tmr_atboot: keep the watchdog uniLoader armed running (the driver
+		 * stops it otherwise); the watchdog core feeds it while Linux lives.
+		 */
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1";
+
+		framebuffer0: framebuffer@ca000000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0xca000000 (1080 * 2400 * 4)>;
+			width = <1080>;
+			height = <2400>;
+			stride = <(1080 * 4)>;
+			format = "a8r8g8b8";
+		};
+	};
+
+	/* System RAM as /proc/iomem shows it under the downstream kernel */
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x3ab00000>,
+		      <0x0 0xc0000000 0x20000000>,
+		      <0x0 0xe1900000 0x1e700000>,
+		      <0x8 0x80000000 0x80000000>,
+		      <0x9 0x00000000 0x80000000>,
+		      <0x9 0x80000000 0x80000000>;
+	};
+
+	/* Regions as S-BOOT's own FDT reserves them (/sys/firmware/fdt on stock) */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		sec-debug-magic@80000000 {
+			reg = <0x0 0x80000000 0x1000>;
+			no-map;
+		};
+
+		kaslr@80001000 {
+			reg = <0x0 0x80001000 0x1000>;
+			no-map;
+		};
+
+		/*
+		 * Samsung EL2 hypervisor (uH): S-BOOT reserves its code and early
+		 * memory; Linux overwriting either resets the phone at random points.
+		 */
+		el2-code@87000000 {
+			reg = <0x0 0x87000000 0x200000>;
+			no-map;
+		};
+
+		el2-earlymem@9fd600000 {
+			reg = <0x9 0xfd600000 0x2a00000>;
+			no-map;
+		};
+
+		/* EL3 log buffers (SECLOG_LOG_BUF_BASE, 8 CPUs x 64 KiB) */
+		seclog@c0000000 {
+			reg = <0x0 0xc0000000 0x80000>;
+			no-map;
+		};
+
+		framebuffer@ca000000 {
+			reg = <0x0 0xca000000 0xa00000>;
+			no-map;
+		};
+
+		camera-contig@db900000 {
+			reg = <0x0 0xdb900000 0x700000>;
+			no-map;
+		};
+
+		secure-camera@e1900000 {
+			reg = <0x0 0xe1900000 0x2000000>;
+			no-map;
+		};
+
+		abox@e9400000 {
+			reg = <0x0 0xe9400000 0x2800000>;
+			no-map;
+		};
+
+		modem@ed000000 {
+			reg = <0x0 0xed000000 0x8a00000>;
+			no-map;
+		};
+
+		cp-ram-logging@f5a00000 {
+			reg = <0x0 0xf5a00000 0x1e00000>;
+			no-map;
+		};
+
+		/* debug-snapshot: header, kernel/platform/sfr/cachedump/bcm logs */
+		debug-snapshot@f9000000 {
+			reg = <0x0 0xf9000000 0xd10000>;
+			no-map;
+		};
+
+		/*
+		 * debug-snapshot pstore slot (DSS_LOG_PSTORE_ADDR), with the geometry
+		 * the downstream kernel runs it with (ramoops module parameters on
+		 * stock: 512K each for dmesg, console, ftrace, pmsg, no ECC), so a
+		 * mainline boot's console shows up in Android's /sys/fs/pstore. The
+		 * console zone is at 0xf9d90000 in both kernels.
+		 */
+		ramoops@f9d10000 {
+			compatible = "ramoops";
+			reg = <0x0 0xf9d10000 0x200000>;
+			record-size = <0x80000>;
+			console-size = <0x80000>;
+			ftrace-size = <0x80000>;
+			pmsg-size = <0x80000>;
+			no-map;
+		};
+
+		/* debug-snapshot kevents */
+		debug-snapshot@f9f10000 {
+			reg = <0x0 0xf9f10000 0x800000>;
+			no-map;
+		};
+
+		gnss@fb000000 {
+			reg = <0x0 0xfb000000 0x800000>;
+			no-map;
+		};
+
+		chub@fd000000 {
+			reg = <0x0 0xfd000000 0x80000>;
+			no-map;
+		};
+	};
+};
