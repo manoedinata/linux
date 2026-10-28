@@ -238,6 +238,49 @@
 			};
 		};
 
+		cmu_fsys: clock-controller@13400000 {
+			compatible = "samsung,exynos9610-cmu-fsys";
+			reg = <0x13400000 0x8000>;
+			#clock-cells = <1>;
+
+			clocks = <&oscclk>, <&cmu_top CLK_CLKCMU_FSYS_BUS>;
+			clock-names = "oscclk", "bus";
+		};
+
+		sysreg_fsys: syscon@13410000 {
+			compatible = "samsung,exynos9610-sysreg-fsys", "syscon";
+			reg = <0x13410000 0x1020>;
+		};
+
+		ufs_0_phy: phy@13524000 {
+			compatible = "samsung,exynos9610-ufs-phy";
+			reg = <0x13524000 0x800>;
+			reg-names = "phy-pma";
+			samsung,pmu-syscon = <&pmu_system_controller>;
+			#phy-cells = <0>;
+			status = "disabled";
+		};
+
+		ufs_0: ufs@13520000 {
+			compatible = "samsung,exynos9610-ufs";
+			reg = <0x13520000 0x200>,
+			      <0x13521100 0x200>,
+			      <0x13510000 0x8000>,
+			      <0x13530000 0x100>;
+			reg-names = "hci", "vs_hci", "unipro", "ufsp";
+			interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu_fsys CLK_GOUT_BLK_FSYS_UID_UFS_EMBD_IPCLKPORT_I_ACLK>,
+				 <&cmu_fsys CLK_GOUT_BLK_FSYS_UID_UFS_EMBD_IPCLKPORT_I_CLK_UNIPRO>,
+				 <&cmu_fsys CLK_GOUT_BLK_FSYS_UID_UFS_EMBD_IPCLKPORT_I_FMP_CLK>;
+			clock-names = "core_clk", "sclk_unipro_main", "fmp";
+			freq-table-hz = <0 0>, <0 0>, <0 0>;
+			phys = <&ufs_0_phy>;
+			phy-names = "ufs-phy";
+			samsung,sysreg = <&sysreg_fsys 0x1010>;
+			dma-coherent;
+			status = "disabled";
+		};
+
 		pmu_system_controller: system-controller@11860000 {
 			compatible = "samsung,exynos9610-pmu",
 				     "samsung,exynos850-pmu", "syscon";

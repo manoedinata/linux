@@ -41,9 +41,11 @@
 
 		/*
 		 * tmr_atboot: keep the watchdog uniLoader armed running (the driver
-		 * stops it otherwise); the watchdog core feeds it while Linux lives.
+		 * stops it otherwise). open_timeout: the watchdog core only feeds it
+		 * for 90 s, then userspace (init) has to, so a boot that hangs before
+		 * init resets the phone back into Android.
 		 */
-		bootargs = "console=tty0 fbcon=font:TER16x32 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1";
+		bootargs = "console=tty0 fbcon=font:TER16x32 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1 watchdog.open_timeout=90";
 
 		framebuffer0: framebuffer@ca000000 {
 			compatible = "simple-framebuffer";
@@ -171,6 +173,16 @@
 			no-map;
 		};
 	};
+
+	/* UFS VCC switch, left on by S-BOOT (downstream: fixedregulator@0) */
+	ufs_vcc: regulator-ufs-vcc {
+		compatible = "regulator-fixed";
+		regulator-name = "ufs-vcc";
+		gpio = <&gpg4 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+		regulator-always-on;
+	};
 };
 
 &acpm_ipc {
@@ -218,5 +230,16 @@
 };
 
 &usbdrd_phy {
+	status = "okay";
+};
+
+&ufs_0_phy {
+	status = "okay";
+};
+
+&ufs_0 {
+	/* one lane each way (downstream ufs,pmd-attr-lane) */
+	lanes-per-direction = <1>;
+	vcc-supply = <&ufs_vcc>;
 	status = "okay";
 };
