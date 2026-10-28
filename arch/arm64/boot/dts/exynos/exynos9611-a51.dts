@@ -45,7 +45,7 @@
 		 * for 90 s, then userspace (init) has to, so a boot that hangs before
 		 * init resets the phone back into Android.
 		 */
-		bootargs = "console=tty0 fbcon=font:TER16x32 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1 watchdog.open_timeout=90";
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1 watchdog.open_timeout=90";
 
 		framebuffer0: framebuffer@ca000000 {
 			compatible = "simple-framebuffer";
