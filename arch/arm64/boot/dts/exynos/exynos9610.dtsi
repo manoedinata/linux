@@ -203,8 +203,7 @@
 		};
 
 		usbdrd_phy: phy@131d0000 {
-			compatible = "samsung,exynos9610-usbdrd-phy",
-				     "samsung,exynos850-usbdrd-phy";
+			compatible = "samsung,exynos9610-usbdrd-phy";
 			reg = <0x131d0000 0x200>;
 			clocks = <&cmu_usb CLK_GOUT_BLK_USB_UID_USB30DRD_IPCLKPORT_ACLK_PHYCTRL_20>,
 				 <&oscclk>;
