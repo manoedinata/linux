@@ -13,6 +13,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -77,6 +78,8 @@
 				 UNIPRO_PCLK_CTRL_EN |\
 				 UNIPRO_MCLK_CTRL_EN)
 
+#define HCI_UFS_ACG_DISABLE	0xFC
+#define HCI_UFS_ACG_DISABLE_EN	BIT(0)
 #define HCI_IOP_ACG_DISABLE	0x100
 #define HCI_IOP_ACG_DISABLE_EN	BIT(0)
 
@@ -106,6 +109,8 @@
 #define UFS_GS101_SHARABLE		(UFS_GS101_WR_SHARABLE | \
 					 UFS_GS101_RD_SHARABLE)
 #define UFS_SHAREABILITY_OFFSET		0x710
+/* Exynos9610: SYSREG_FSYS 0x1010 bits 8/9 (downstream ufs-dma-coherency) */
+#define UFS_EXYNOS9610_SHARABLE		(BIT(9) | BIT(8))
 
 /* Multi-host registers */
 #define MHCTRL			0xC4
@@ -417,6 +422,123 @@ static int exynos7_ufs_post_pwr_change(struct exynos_ufs *ufs,
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), 0x1);
 		exynos_ufs_disable_dbg_mode(hba);
 	}
+
+	return 0;
+}
+
+/*
+ * Exynos9610: the attribute writes of the downstream CAL (ufs-cal-9610.c,
+ * init_cfg / post_init_cfg / calib_of_hs_rate_*); its PMA writes are in
+ * phy-exynos9610-ufs.c. PCS attributes take the lane in the selector (TX
+ * lanes from 0, RX lanes from PA_MAXDATALANES) and need the PCS access
+ * window (0x200) opened around them.
+ */
+#define EXYNOS9610_PCS_ACCESS		0x200
+#define EXYNOS9610_PCS_ACCESS_EN	0x40
+
+static int exynos9610_ufs_pre_link(struct exynos_ufs *ufs)
+{
+	struct ufs_hba *hba = ufs->hba;
+	u32 period = NSEC_PER_SEC / ufs->mclk_rate;
+	int i;
+
+	dev_info(hba->dev, "unipro mclk %lu Hz, period %u ns\n", ufs->mclk_rate,
+		 period);
+
+	/* lanes are only read in exynos_ufs_phy_init(), which runs after this */
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_AVAILRXDATALANES), &ufs->avail_ln_rx);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_AVAILTXDATALANES), &ufs->avail_ln_tx);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_CLK_PERIOD), period);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(EXYNOS9610_PCS_ACCESS),
+		       EXYNOS9610_PCS_ACCESS_EN);
+	for_each_ufs_rx_lane(ufs, i) {
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x12, i), period);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x5c, i), 0x38);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x0f, i), 0x00);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x65, i), 0x01);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x69, i), 0x01);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x21, i), 0x00);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x22, i), 0x00);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x84, i), 0x01);
+	}
+	for_each_ufs_tx_lane(ufs, i) {
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0xaa, i), period);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x04, i), 0x01);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x8f, i), 0x3e);
+	}
+	ufshcd_dme_set(hba, UIC_ARG_MIB(EXYNOS9610_PCS_ACCESS), 0x0);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_AUTOMODE_THLD), 0x4e20);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OPTION_SUITE), 0x2e820183);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE), 0x0);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(N_DEVICEID), 0x0);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(N_DEVICEID_VALID), 0x1);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(T_PEERDEVICEID), 0x1);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(T_CONNECTIONSTATE), CPORT_CONNECTED);
+
+	return 0;
+}
+
+/*
+ * The downstream driver keeps the hardware auto clock gating off while the
+ * host is in use (UFS_ACG_DISABLE = 1); the host reset clears it.
+ */
+static int exynos9610_ufs_post_hce_enable(struct exynos_ufs *ufs)
+{
+	u32 reg = hci_readl(ufs, HCI_UFS_ACG_DISABLE);
+
+	hci_writel(ufs, reg | HCI_UFS_ACG_DISABLE_EN, HCI_UFS_ACG_DISABLE);
+
+	return 0;
+}
+
+static int exynos9610_ufs_post_link(struct exynos_ufs *ufs)
+{
+	struct ufs_hba *hba = ufs->hba;
+	u32 hw_min_tactivate, peer_tactivate, hibern8time;
+	int i;
+
+	/*
+	 * Samsung UFS device vendor recommendation (from the CAL): host
+	 * activate time < device, host hibern8 time > device.
+	 */
+	ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(RX_MIN_ACTIVATETIME_CAPABILITY,
+					    ufs->rx_sel_idx), &hw_min_tactivate);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &peer_tactivate);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME), &hibern8time);
+	if (peer_tactivate >= hw_min_tactivate)
+		ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TACTIVATE),
+				    peer_tactivate + 1);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME), hibern8time + 1);
+
+	exynos_ufs_enable_dbg_mode(hba);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_SAVECONFIGTIME), 0xfa);
+	exynos_ufs_disable_dbg_mode(hba);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(EXYNOS9610_PCS_ACCESS),
+		       EXYNOS9610_PCS_ACCESS_EN);
+	for_each_ufs_rx_lane(ufs, i) {
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x35, i), 0x05);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x73, i), 0x01);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x41, i), 0x02);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x42, i), 0xac);
+	}
+	ufshcd_dme_set(hba, UIC_ARG_MIB(EXYNOS9610_PCS_ACCESS), 0x0);
+
+	return 0;
+}
+
+static int exynos9610_ufs_pre_pwr_change(struct exynos_ufs *ufs,
+					 struct ufs_pa_layer_attr *pwr)
+{
+	struct ufs_hba *hba = ufs->hba;
+
+	/* DL timeouts are set by exynos_ufs_pre_pwr_mode() */
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA0), 12000);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA1), 32000);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA2), 16000);
 
 	return 0;
 }
@@ -1120,7 +1242,8 @@ static int exynos_ufs_setup_clocks(struct ufs_hba *hba, bool on,
 		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
 			exynos_ufs_disable_auto_ctrl_hcc(ufs);
 		exynos_ufs_ungate_clks(ufs);
-	} else if (!on && status == POST_CHANGE) {
+	} else if (!on && status == PRE_CHANGE) {
+		/* HCI registers, so before the clocks go off */
 		exynos_ufs_gate_clks(ufs);
 		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
 			exynos_ufs_enable_auto_ctrl_hcc(ufs);
@@ -1305,8 +1428,6 @@ static inline void exynos_ufs_priv_init(struct ufs_hba *hba,
 	hba->quirks = ufs->drv_data->quirks;
 }
 
-#ifdef CONFIG_SCSI_UFS_CRYPTO
-
 /*
  * Support for Flash Memory Protector (FMP), which is the inline encryption
  * hardware on Exynos and Exynos-based SoCs.  The interface to this hardware is
@@ -1358,6 +1479,8 @@ struct fmp_sg_entry {
 #define SMU_EMBEDDED			0
 #define SMU_INIT			0
 #define CFG_DESCTYPE_3			3
+
+#ifdef CONFIG_SCSI_UFS_CRYPTO
 
 static void exynos_ufs_fmp_init(struct ufs_hba *hba, struct exynos_ufs *ufs)
 {
@@ -1529,6 +1652,44 @@ static void exynos_ufs_fmp_resume(struct ufs_hba *hba)
 #define exynos_ufs_fmp_fill_prdt NULL
 
 #endif /* !CONFIG_SCSI_UFS_CRYPTO */
+
+static int exynos9610_ufs_drv_init(struct exynos_ufs *ufs)
+{
+	struct ufs_hba *hba = ufs->hba;
+	struct arm_smccc_res res;
+	u32 reg;
+
+	/*
+	 * The downstream kernel always runs FMP with 128-byte PRDT entries
+	 * (DESCTYPE 3) and initialises the SMU through EL3, whether or not
+	 * the controller advertises crypto; exynos_ufs_fmp_init() only does
+	 * it for crypto-capable hosts.
+	 */
+	if (ufshcd_sg_entry_size(hba) != sizeof(struct fmp_sg_entry)) {
+		arm_smccc_smc(SMC_CMD_FMP_SECURITY, 0, SMU_EMBEDDED,
+			      CFG_DESCTYPE_3, 0, 0, 0, 0, &res);
+		if (res.a0) {
+			dev_err(hba->dev, "SMC_CMD_FMP_SECURITY failed: %ld\n",
+				res.a0);
+			return -EIO;
+		}
+		ufshcd_set_sg_entry_size(hba, sizeof(struct fmp_sg_entry));
+
+		arm_smccc_smc(SMC_CMD_SMU, SMU_INIT, SMU_EMBEDDED, 0, 0, 0, 0, 0,
+			      &res);
+		if (res.a0) {
+			dev_err(hba->dev, "SMC_CMD_SMU(SMU_INIT) failed: %ld\n",
+				res.a0);
+			return -EIO;
+		}
+	}
+
+	/* set ACG to be controlled by UFS_ACG_DISABLE */
+	reg = hci_readl(ufs, HCI_IOP_ACG_DISABLE);
+	hci_writel(ufs, reg & ~HCI_IOP_ACG_DISABLE_EN, HCI_IOP_ACG_DISABLE);
+
+	return exynos_ufs_shareability(ufs);
+}
 
 static int exynos_ufs_init(struct ufs_hba *hba)
 {
@@ -2101,10 +2262,23 @@ static int gs101_ufs_pre_pwr_change(struct exynos_ufs *ufs,
 	return 0;
 }
 
+static int exynos_ufs_set_dma_mask(struct ufs_hba *hba)
+{
+	struct exynos_ufs *ufs = ufshcd_get_variant(hba);
+
+	if (!(ufs->opts & EXYNOS_UFS_OPT_32BIT_DMA) &&
+	    (hba->capabilities & MASK_64_ADDRESSING_SUPPORT) &&
+	    !dma_set_mask_and_coherent(hba->dev, DMA_BIT_MASK(64)))
+		return 0;
+
+	return dma_set_mask_and_coherent(hba->dev, DMA_BIT_MASK(32));
+}
+
 static const struct ufs_hba_variant_ops ufs_hba_exynos_ops = {
 	.name				= "exynos_ufs",
 	.init				= exynos_ufs_init,
 	.exit				= exynos_ufs_exit,
+	.set_dma_mask			= exynos_ufs_set_dma_mask,
 	.hce_enable_notify		= exynos_ufs_hce_enable_notify,
 	.link_startup_notify		= exynos_ufs_link_startup_notify,
 	.negotiate_pwr_mode		= exynos_ufs_negotiate_pwr_mode,
@@ -2223,6 +2397,34 @@ static const struct exynos_ufs_drv_data exynos_ufs_drvs = {
 	.post_pwr_change	= exynos7_ufs_post_pwr_change,
 };
 
+static struct exynos_ufs_uic_attr exynos9610_uic_attr = {
+	.tx_trailingclks		= 0x10,
+	.pa_dbg_clk_period_off		= PA_DBG_CLK_PERIOD,
+};
+
+static const struct exynos_ufs_drv_data exynos9610_ufs_drvs = {
+	.uic_attr		= &exynos9610_uic_attr,
+	.quirks			= UFSHCD_QUIRK_PRDT_BYTE_GRAN |
+				  UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR |
+				  UFSHCI_QUIRK_BROKEN_HCE |
+				  UFSHCI_QUIRK_SKIP_RESET_INTR_AGGR |
+				  UFSHCD_QUIRK_BROKEN_OCS_FATAL_ERROR |
+				  UFSHCI_QUIRK_SKIP_MANUAL_WB_FLUSH_CTRL |
+				  UFSHCD_QUIRK_SKIP_DEF_UNIPRO_TIMEOUT_SETTING,
+	.opts			= EXYNOS_UFS_OPT_HAS_APB_CLK_CTRL |
+				  EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL |
+				  EXYNOS_UFS_OPT_SKIP_CONFIG_PHY_ATTR |
+				  EXYNOS_UFS_OPT_UFSPR_SECURE |
+				  EXYNOS_UFS_OPT_TIMER_TICK_SELECT |
+				  EXYNOS_UFS_OPT_32BIT_DMA,
+	.iocc_mask		= UFS_EXYNOS9610_SHARABLE,
+	.drv_init		= exynos9610_ufs_drv_init,
+	.post_hce_enable	= exynos9610_ufs_post_hce_enable,
+	.pre_link		= exynos9610_ufs_pre_link,
+	.post_link		= exynos9610_ufs_post_link,
+	.pre_pwr_change		= exynos9610_ufs_pre_pwr_change,
+};
+
 static struct exynos_ufs_uic_attr gs101_uic_attr = {
 	.tx_trailingclks		= 0xff,
 	.pa_dbg_opt_suite1_val		= 0x90913C1C,
@@ -2314,6 +2516,8 @@ static const struct of_device_id exynos_ufs_of_match[] = {
 	  .data	      = &gs101_ufs_drvs },
 	{ .compatible = "samsung,exynos7-ufs",
 	  .data	      = &exynos_ufs_drvs },
+	{ .compatible = "samsung,exynos9610-ufs",
+	  .data	      = &exynos9610_ufs_drvs },
 	{ .compatible = "samsung,exynosautov9-ufs",
 	  .data	      = &exynosauto_ufs_drvs },
 	{ .compatible = "samsung,exynosautov9-ufs-vh",
