@@ -8,12 +8,31 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
 #include "exynos9610.dtsi"
 
 / {
 	model = "Samsung Galaxy A51";
 	compatible = "samsung,a51", "samsung,exynos9610";
 	chassis-type = "handset";
+
+	aliases {
+		i2c1 = &i2c_if_pmic;
+	};
+
+	/*
+	 * i2c_1 (s3c2440-i2c @0x13840000) bit-banged until there is a PERI
+	 * clock driver: SM5713 IF-PMIC (charger/fuel gauge @0x49, MUIC @0x25,
+	 * USB-PD).
+	 */
+	i2c_if_pmic: i2c-1 {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpp0 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&gpp0 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <5>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
 
 	chosen {
 		#address-cells = <2>;
@@ -24,7 +43,7 @@
 		 * tmr_atboot: keep the watchdog uniLoader armed running (the driver
 		 * stops it otherwise); the watchdog core feeds it while Linux lives.
 		 */
-		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1";
+		bootargs = "console=tty0 fbcon=font:TER16x32 ignore_loglevel clk_ignore_unused s3c2410_wdt.tmr_atboot=1";
 
 		framebuffer0: framebuffer@ca000000 {
 			compatible = "simple-framebuffer";
@@ -36,7 +55,7 @@
 		};
 	};
 
-	/* System RAM as /proc/iomem shows it under the downstream kernel */
+	/* System RAM as S-BOOT's FDT describes it */
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0x3ab00000>,
@@ -152,4 +171,52 @@
 			no-map;
 		};
 	};
+};
+
+&acpm_ipc {
+	pmic-regulators {
+		compatible = "samsung,s2mpu09-acpm-regulator";
+		samsung,acpm-channel = <2>;
+
+		/*
+		 * USB PHY supplies, at the voltages the stock kernel runs them.
+		 * Always on for now: the mainline PHY/DWC3 drivers do not take
+		 * these supplies.
+		 */
+		regulators {
+			vdd_ldo12: LDO12 {
+				regulator-name = "vdd_ldo12";
+				regulator-min-microvolt = <850000>;
+				regulator-max-microvolt = <850000>;
+				regulator-always-on;
+			};
+
+			vdd_ldo13: LDO13 {
+				regulator-name = "vdd_ldo13";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+			};
+
+			vdd_ldo14: LDO14 {
+				regulator-name = "vdd_ldo14";
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+&usbdrd {
+	status = "okay";
+};
+
+&usbdrd_dwc3 {
+	dr_mode = "peripheral";
+	maximum-speed = "high-speed";
+};
+
+&usbdrd_phy {
+	status = "okay";
 };

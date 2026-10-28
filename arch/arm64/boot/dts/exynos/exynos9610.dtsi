@@ -2,11 +2,12 @@
 /*
  * Samsung Exynos 9610 / 9611 SoC device tree source
  *
- * Minimal description for early bring-up: CPUs, GIC, timer, PMU (reboot,
- * reboot mode) and the CPUCL0 watchdog. No clock controller yet, so the
- * watchdog runs from a fixed 26 MHz OSCCLK.
+ * Early bring-up: CPUs, GIC, timer, PMU (reboot, reboot mode), the CPUCL0
+ * watchdog (on the fixed 26 MHz OSCCLK) and USB with the CMU_TOP/CMU_USB
+ * clocks it needs.
  */
 
+#include <dt-bindings/clock/samsung,exynos9610-cmu.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -15,6 +16,10 @@
 	#size-cells = <1>;
 
 	interrupt-parent = <&gic>;
+
+	aliases {
+		pinctrl4 = &pinctrl_top;
+	};
 
 	cpus {
 		#address-cells = <2>;
@@ -125,6 +130,23 @@
 		clock-output-names = "oscclk";
 	};
 
+	firmware {
+		/* APM firmware: owns the SPEEDY bus of the S2MPU09 PMIC */
+		acpm_ipc: power-management {
+			compatible = "samsung,exynos9610-acpm-ipc";
+			mboxes = <&ap2apm_mailbox>;
+			shmem = <&apm_sram>;
+		};
+	};
+
+	apm_sram: sram@2039000 {
+		compatible = "mmio-sram";
+		reg = <0x0 0x2039000 0x15000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x2039000 0x15000>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
@@ -155,6 +177,68 @@
 			samsung,syscon-phandle = <&pmu_system_controller>;
 		};
 
+		ap2apm_mailbox: mailbox@11900000 {
+			compatible = "samsung,exynos9610-mbox";
+			reg = <0x11900000 0x1000>;
+			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <0>;
+		};
+
+		cmu_top: clock-controller@12100000 {
+			compatible = "samsung,exynos9610-cmu-top";
+			reg = <0x12100000 0x8000>;
+			#clock-cells = <1>;
+
+			clocks = <&oscclk>;
+			clock-names = "oscclk";
+		};
+
+		cmu_usb: clock-controller@13030000 {
+			compatible = "samsung,exynos9610-cmu-usb";
+			reg = <0x13030000 0x8000>;
+			#clock-cells = <1>;
+
+			clocks = <&oscclk>, <&cmu_top CLK_CLKCMU_USB_BUS>;
+			clock-names = "oscclk", "bus";
+		};
+
+		usbdrd_phy: phy@131d0000 {
+			compatible = "samsung,exynos9610-usbdrd-phy",
+				     "samsung,exynos850-usbdrd-phy";
+			reg = <0x131d0000 0x200>;
+			clocks = <&cmu_usb CLK_GOUT_BLK_USB_UID_USB30DRD_IPCLKPORT_ACLK_PHYCTRL_20>,
+				 <&oscclk>;
+			clock-names = "phy", "ref";
+			samsung,pmu-syscon = <&pmu_system_controller>;
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		usbdrd: usb@13200000 {
+			compatible = "samsung,exynos9610-dwusb3",
+				     "samsung,exynos850-dwusb3";
+			ranges = <0x0 0x13200000 0x10000>;
+			clocks = <&cmu_usb CLK_GOUT_BLK_USB_UID_USB30DRD_IPCLKPORT_BUS_CLK_EARLY>,
+				 <&cmu_usb CLK_GOUT_BLK_USB_UID_USB30DRD_IPCLKPORT_USB30DRD_REF_CLK>;
+			clock-names = "bus_early", "ref";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			usbdrd_dwc3: usb@0 {
+				compatible = "snps,dwc3";
+				reg = <0x0 0x10000>;
+				interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
+				phys = <&usbdrd_phy 0>;
+				phy-names = "usb2-phy";
+				/* 8-bit UTMI+, as the stock kernel runs it (GUSB2PHYCFG) */
+				phy_type = "utmi";
+				snps,dis-u2-freeclk-exists-quirk;
+				/* stock runs GUSB2PHYCFG.ENBLSLPM = 0 */
+				snps,dis_enblslpm_quirk;
+			};
+		};
+
 		pmu_system_controller: system-controller@11860000 {
 			compatible = "samsung,exynos9610-pmu",
 				     "samsung,exynos850-pmu", "syscon";
@@ -174,6 +258,66 @@
 				mode-download = <0x12345671>;
 				mode-upload = <0x12345672>;
 				mode-recovery = <0x12345674>;
+			};
+		};
+
+		pinctrl_top: pinctrl@139b0000 {
+			compatible = "samsung,exynos9610-pinctrl";
+			reg = <0x139b0000 0x1000>;
+
+			gpp0: gpp0-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpp1: gpp1-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpp2: gpp2-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpc0: gpc0-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpc1: gpc1-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpc2: gpc2-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpg0: gpg0-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpg1: gpg1-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpg2: gpg2-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpg3: gpg3-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			gpg4: gpg4-gpio-bank {
+				gpio-controller;
+				#gpio-cells = <2>;
 			};
 		};
 
