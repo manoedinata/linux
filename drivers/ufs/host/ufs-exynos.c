@@ -1049,7 +1049,8 @@ static int exynos_ufs_pre_pwr_mode(struct ufs_hba *hba,
 		ufs->drv_data->pre_pwr_change(ufs, dev_req_params);
 
 	if (ufshcd_is_hs_mode(dev_req_params)) {
-		exynos_ufs_config_sync_pattern_mask(ufs, dev_req_params);
+		if (!(ufs->opts & EXYNOS_UFS_OPT_SKIP_SYNC_PATTERN_MASK))
+			exynos_ufs_config_sync_pattern_mask(ufs, dev_req_params);
 
 		switch (dev_req_params->hs_rate) {
 		case PA_HS_MODE_A:
@@ -2416,7 +2417,8 @@ static const struct exynos_ufs_drv_data exynos9610_ufs_drvs = {
 				  EXYNOS_UFS_OPT_SKIP_CONFIG_PHY_ATTR |
 				  EXYNOS_UFS_OPT_UFSPR_SECURE |
 				  EXYNOS_UFS_OPT_TIMER_TICK_SELECT |
-				  EXYNOS_UFS_OPT_32BIT_DMA,
+				  EXYNOS_UFS_OPT_32BIT_DMA |
+				  EXYNOS_UFS_OPT_SKIP_SYNC_PATTERN_MASK,
 	.iocc_mask		= UFS_EXYNOS9610_SHARABLE,
 	.drv_init		= exynos9610_ufs_drv_init,
 	.post_hce_enable	= exynos9610_ufs_post_hce_enable,
