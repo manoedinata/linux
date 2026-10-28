@@ -17,6 +17,7 @@ properties:
     enum:
       - google,gs101-ufs
       - samsung,exynos7-ufs
+      - samsung,exynos9610-ufs
       - samsung,exynosautov9-ufs
       - samsung,exynosautov9-ufs-vh
       - samsung,exynosautov920-ufs
@@ -101,12 +102,29 @@ allOf:
           minItems: 6
 
     else:
-      properties:
-        clocks:
-          maxItems: 2
+      if:
+        properties:
+          compatible:
+            contains:
+              const: samsung,exynos9610-ufs
 
-        clock-names:
-          maxItems: 2
+      then:
+        properties:
+          clocks:
+            minItems: 3
+            maxItems: 3
+
+          clock-names:
+            minItems: 3
+            maxItems: 3
+
+      else:
+        properties:
+          clocks:
+            maxItems: 2
+
+          clock-names:
+            maxItems: 2
 
 unevaluatedProperties: false
 

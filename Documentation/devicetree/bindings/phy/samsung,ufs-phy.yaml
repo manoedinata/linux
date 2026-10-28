@@ -17,6 +17,7 @@ properties:
     enum:
       - google,gs101-ufs-phy
       - samsung,exynos7-ufs-phy
+      - samsung,exynos9610-ufs-phy
       - samsung,exynosautov9-ufs-phy
       - samsung,exynosautov920-ufs-phy
       - tesla,fsd-ufs-phy
@@ -57,11 +58,25 @@ required:
   - compatible
   - reg
   - reg-names
-  - clocks
-  - clock-names
   - samsung,pmu-syscon
 
 allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: samsung,exynos9610-ufs-phy
+
+    then:
+      properties:
+        clocks: false
+        clock-names: false
+
+    else:
+      required:
+        - clocks
+        - clock-names
+
   - if:
       properties:
         compatible:
