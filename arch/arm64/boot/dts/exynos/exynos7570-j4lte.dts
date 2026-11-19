@@ -118,6 +118,71 @@
 	};
 };
 
+&cpu0 {
+	cpu-supply = <&buck1_reg>;
+};
+
+&cpu1 {
+	cpu-supply = <&buck1_reg>;
+};
+
+&cpu2 {
+	cpu-supply = <&buck1_reg>;
+};
+
+&cpu3 {
+	cpu-supply = <&buck1_reg>;
+};
+
+/*
+ * CPU voltages: the ASV voltages the downstream kernel used on this J4
+ * (ECT DVFS dvfs_cpucl0 with the chip's ASV group), raised to the 825 mV
+ * BUCK1 floor where they are lower. 1430 MHz is the highest level Samsung
+ * enables for the chip (ECT CAL max), a boost level: 1378 MHz stays the top
+ * normal level, the rate S-BOOT leaves running.
+ */
+&cpu_opp_table {
+	opp-344500000 {
+		opp-microvolt = <825000>;	/* ASV 600000 */
+	};
+	opp-448500000 {
+		opp-microvolt = <825000>;	/* ASV 606250 */
+	};
+	opp-546000000 {
+		opp-microvolt = <825000>;	/* ASV 643750 */
+	};
+	opp-676000000 {
+		opp-microvolt = <825000>;	/* ASV 681250 */
+	};
+	opp-756600000 {
+		opp-microvolt = <825000>;	/* ASV 706250 */
+	};
+	opp-828750000 {
+		opp-microvolt = <825000>;	/* ASV 725000 */
+	};
+	opp-962000000 {
+		opp-microvolt = <825000>;	/* ASV 762500 */
+	};
+	opp-1040000000 {
+		opp-microvolt = <825000>;	/* ASV 787500 */
+	};
+	opp-1144000000 {
+		opp-microvolt = <825000>;	/* ASV 825000 */
+	};
+	opp-1274000000 {
+		opp-microvolt = <881250>;	/* ASV 881250 */
+	};
+	opp-1378000000 {
+		opp-microvolt = <925000>;	/* ASV 925000 */
+	};
+	opp-1430000000 {
+		opp-hz = /bits/ 64 <1430000000>;
+		opp-microvolt = <950000>;
+		clock-latency-ns = <100000>;
+		turbo-mode;	/* cpufreq boost */
+	};
+};
+
 &mmc0 {
 	/* Pins are left as S-BOOT set them up */
 	vmmc-supply = <&ldo14_reg>;
@@ -247,8 +312,15 @@
 		regulators {
 			buck1_reg: BUCK1 {
 				regulator-name = "BUCK1";
-				regulator-min-microvolt = <500000>;
-				regulator-max-microvolt = <1300000>;
+				/*
+				 * One rail for the CPUs, MIF, INT, DISP, CAM, G3D
+				 * and the CP. 825 mV covers what the blocks need at
+				 * the rates S-BOOT leaves them at (CP 830 MHz:
+				 * 818.75 mV, MIF 830 MHz: 775 mV, downstream ASV of
+				 * this phone); cpufreq only goes above it.
+				 */
+				regulator-min-microvolt = <825000>;
+				regulator-max-microvolt = <1100000>;
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-ramp-delay = <12000>;
