@@ -52,6 +52,8 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
 			enable-method = "psci";
+			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			operating-points-v2 = <&cpu_opp_table>;
 		};
 
 		cpu1: cpu@1 {
@@ -59,6 +61,8 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
 			enable-method = "psci";
+			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			operating-points-v2 = <&cpu_opp_table>;
 		};
 
 		cpu2: cpu@2 {
@@ -66,6 +70,8 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x2>;
 			enable-method = "psci";
+			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			operating-points-v2 = <&cpu_opp_table>;
 		};
 
 		cpu3: cpu@3 {
@@ -73,6 +79,73 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x3>;
 			enable-method = "psci";
+			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			operating-points-v2 = <&cpu_opp_table>;
+		};
+	};
+
+	/*
+	 * CPU levels of Samsung's ECT DVFS table up to 1378 MHz, the rate S-BOOT
+	 * leaves running. No voltages: BUCK1 stays at the boot voltage, which is
+	 * the ECT voltage of 1378 MHz and so enough for every level here.
+	 */
+	cpu_opp_table: opp-table-cpu {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-344500000 {
+			opp-hz = /bits/ 64 <344500000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-448500000 {
+			opp-hz = /bits/ 64 <448500000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-546000000 {
+			opp-hz = /bits/ 64 <546000000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-676000000 {
+			opp-hz = /bits/ 64 <676000000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-756600000 {
+			opp-hz = /bits/ 64 <756600000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-828750000 {
+			opp-hz = /bits/ 64 <828750000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-962000000 {
+			opp-hz = /bits/ 64 <962000000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-1040000000 {
+			opp-hz = /bits/ 64 <1040000000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-1144000000 {
+			opp-hz = /bits/ 64 <1144000000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-1274000000 {
+			opp-hz = /bits/ 64 <1274000000>;
+			clock-latency-ns = <100000>;
+		};
+
+		opp-1378000000 {
+			opp-hz = /bits/ 64 <1378000000>;
+			clock-latency-ns = <100000>;
 		};
 	};
 
