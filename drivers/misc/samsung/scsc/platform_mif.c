@@ -915,7 +915,8 @@ static void __platform_mif_usbpll_claim(struct platform_mif *platform, bool wlbt
 	s32 ret = 0;
 
 	if (!platform->cmu_base) {
-		SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev, "USBPLL claim not enabled\n");
+		if (scsc_log_verbose)	/* expected: the AP owns the USB PLL */
+			SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev, "USBPLL claim not enabled\n");
 		return;
 	}
 

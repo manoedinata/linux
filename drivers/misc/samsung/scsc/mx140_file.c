@@ -263,7 +263,8 @@ static int __mx140_file_download_fw(struct scsc_mx *mx, void *dest, size_t dest_
 	SCSC_TAG_DEBUG(MX_FILE, "Load CR4 fw %s in shared address %p\n", img_path_name, dest);
 	r = mx140_request_file(mx, img_path_name, &firm);
 	if (r) {
-		SCSC_TAG_ERR(MX_FILE, "Error Loading FW, error %d\n", r);
+		if (scsc_log_verbose)	/* expected while probing optional files */
+			SCSC_TAG_ERR(MX_FILE, "Error Loading FW, error %d\n", r);
 		return r;
 	}
 	SCSC_TAG_DEBUG(MX_FILE, "FW Download, size %zu\n", firm->size);
@@ -357,14 +358,16 @@ int mx140_request_file(struct scsc_mx *mx, char *path, const struct firmware **f
 	}
 
 	if (mx140_path_exists(base_dir)) {
-		SCSC_TAG_ERR(MX_FILE, "lookup failed for %s\n", base_dir);
+		if (scsc_log_verbose)	/* expected while probing optional files */
+			SCSC_TAG_ERR(MX_FILE, "lookup failed for %s\n", base_dir);
 		return -EAGAIN;
 	}
 
 	/* Open the file for reading. */
 	f = filp_open(path, O_RDONLY, 0);
 	if (IS_ERR(f)) {
-		SCSC_TAG_ERR(MX_FILE, "filp_open() failed for %s with %ld\n", path, PTR_ERR(f));
+		if (scsc_log_verbose)	/* expected while probing optional files */
+			SCSC_TAG_ERR(MX_FILE, "filp_open() failed for %s with %ld\n", path, PTR_ERR(f));
 		return -ENOENT;
 	}
 	file_size = i_size_read(file_inode(f));
@@ -427,7 +430,8 @@ EXPORT_SYMBOL(mx140_request_file);
 int mx140_release_file(struct scsc_mx *mx, const struct firmware *firmp)
 {
 	if (!firmp || !firmp->data) {
-		SCSC_TAG_ERR(MX_FILE, "firmp=%p\n", firmp);
+		if (scsc_log_verbose)	/* expected while probing optional files */
+			SCSC_TAG_ERR(MX_FILE, "firmp=%p\n", firmp);
 		return -EINVAL;
 	}
 
