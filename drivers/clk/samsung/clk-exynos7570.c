@@ -24,6 +24,7 @@
 #include <dt-bindings/clock/samsung,exynos7570-cmu.h>
 
 #include "clk.h"
+#include "clk-cpu.h"
 #include "clk-exynos-arm64.h"
 
 /*
@@ -55,6 +56,7 @@
 #define CLK_CON_MUX_CLKCMU_PERI_USI_1                    0x0278
 #define CLK_CON_DIV_CLK_MIF_BUSD                         0x0414
 #define CLK_CON_DIV_CLK_MIF_APB                          0x0418
+#define CLK_CON_DIV_CLKCMU_CPUCL0_SWITCH                 0x0420
 #define CLK_CON_DIV_CLKCMU_G3D                           0x0424
 #define CLK_CON_DIV_CLKCMU_DISPAUD_BUS                   0x0430
 #define CLK_CON_DIV_CLKCMU_DISPAUD_DECON_INT_VCLK        0x0434
@@ -72,6 +74,7 @@
 #define CLK_ENABLE_CLK_MIF_OSCCLK                        0x0800
 #define CLK_ENABLE_CLK_MIF_BUSD                          0x0810
 #define CLK_ENABLE_CLK_MIF_APB                           0x0814
+#define CLK_ENABLE_CLKCMU_CPUCL0_SWITCH                  0x082c
 #define CLK_ENABLE_CLKCMU_G3D                            0x0830
 #define CLK_ENABLE_CLKCMU_DISPAUD_BUS                    0x083c
 #define CLK_ENABLE_CLKCMU_DISPAUD_DECON_INT_VCLK         0x0840
@@ -115,6 +118,7 @@ static const unsigned long mif_clk_regs[] __initconst = {
 	CLK_CON_MUX_CLKCMU_PERI_USI_1,
 	CLK_CON_DIV_CLK_MIF_BUSD,
 	CLK_CON_DIV_CLK_MIF_APB,
+	CLK_CON_DIV_CLKCMU_CPUCL0_SWITCH,
 	CLK_CON_DIV_CLKCMU_G3D,
 	CLK_CON_DIV_CLKCMU_DISPAUD_BUS,
 	CLK_CON_DIV_CLKCMU_DISPAUD_DECON_INT_VCLK,
@@ -132,6 +136,7 @@ static const unsigned long mif_clk_regs[] __initconst = {
 	CLK_ENABLE_CLK_MIF_OSCCLK,
 	CLK_ENABLE_CLK_MIF_BUSD,
 	CLK_ENABLE_CLK_MIF_APB,
+	CLK_ENABLE_CLKCMU_CPUCL0_SWITCH,
 	CLK_ENABLE_CLKCMU_G3D,
 	CLK_ENABLE_CLKCMU_DISPAUD_BUS,
 	CLK_ENABLE_CLKCMU_DISPAUD_DECON_INT_VCLK,
@@ -223,6 +228,7 @@ static const struct samsung_div_clock mif_div_clks[] __initconst = {
 	DIV(CLK_DOUT_MIF_CMU_DISPAUD_BUS, "dout_mif_cmu_dispaud_bus", "mout_mif_cmu_dispaud_bus", CLK_CON_DIV_CLKCMU_DISPAUD_BUS, 0, 4),
 	DIV(CLK_DOUT_MIF_CMU_DISPAUD_DECON_INT_VCLK, "dout_mif_cmu_dispaud_decon_int_vclk", "mout_mif_cmu_dispaud_decon_int_vclk", CLK_CON_DIV_CLKCMU_DISPAUD_DECON_INT_VCLK, 0, 4),
 	DIV(CLK_DOUT_MIF_CMU_G3D, "dout_mif_cmu_g3d", "mout_mif_cmu_g3d", CLK_CON_DIV_CLKCMU_G3D, 0, 4),
+	DIV(CLK_DOUT_MIF_CMU_CPUCL0_SWITCH, "dout_mif_cmu_cpucl0_switch", "ffac_mif_shared0_pll_div2", CLK_CON_DIV_CLKCMU_CPUCL0_SWITCH, 0, 2),
 };
 
 static const struct samsung_gate_clock mif_gate_clks[] __initconst = {
@@ -248,6 +254,7 @@ static const struct samsung_gate_clock mif_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_MIF_GPIO_PCLK, "gout_mif_gpio_pclk", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 2, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_MIF_SYSREG_PCLK, "gout_mif_sysreg_pclk", "dout_mif_apb", CLK_ENABLE_CLK_MIF_APB, 1, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_MIF_CMU_G3D, "gout_mif_cmu_g3d", "dout_mif_cmu_g3d", CLK_ENABLE_CLKCMU_G3D, 0, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_MIF_CMU_CPUCL0_SWITCH, "gout_mif_cmu_cpucl0_switch", "dout_mif_cmu_cpucl0_switch", CLK_ENABLE_CLKCMU_CPUCL0_SWITCH, 0, CLK_SET_RATE_PARENT, 0),
 };
 
 static const struct samsung_cmu_info mif_cmu_info __initconst = {
@@ -542,6 +549,140 @@ static const struct samsung_cmu_info g3d_cmu_info __initconst = {
 };
 
 /*
+ * Register offsets for CMU_CPUCL0 (0x10900000)
+ */
+#define CPUCL0_PLL_LOCK                                  0x0000
+#define CPUCL0_PLL_CON0                                  0x0100
+#define CLK_CON_MUX_CPUCL0_PLL                           0x0200
+#define CLK_CON_MUX_CLKCMU_CPUCL0_SWITCH_USER            0x0204
+#define CLK_CON_MUX_CLK_CPUCL0                           0x0208
+#define CLK_CON_DIV_CLK_CPUCL0_1                         0x0400
+#define CLK_CON_DIV_CLK_CPUCL0_2                         0x0404
+#define CLK_CON_DIV_CLK_CPUCL0_ACLK                      0x0408
+#define CLK_CON_DIV_CLK_CPUCL0_PCLK                      0x040c
+#define CLK_CON_DIV_CLK_CPUCL0_ATCLK                     0x0410
+#define CLK_CON_DIV_CLK_CPUCL0_PCLKDBG                   0x0414
+#define CLK_CON_DIV_CLK_CPUCL0_CNTCLK                    0x0418
+#define CLK_CON_DIV_CLK_CPUCL0_RUN_MONITOR               0x041c
+#define CLK_CON_DIV_CLK_CPUCL0_HPM                       0x0420
+#define CLK_CON_DIV_CLK_CPUCL0_PLL                       0x0424
+
+static const unsigned long cpucl0_clk_regs[] __initconst = {
+	CPUCL0_PLL_LOCK,
+	CPUCL0_PLL_CON0,
+	CLK_CON_MUX_CPUCL0_PLL,
+	CLK_CON_MUX_CLKCMU_CPUCL0_SWITCH_USER,
+	CLK_CON_MUX_CLK_CPUCL0,
+	CLK_CON_DIV_CLK_CPUCL0_1,
+	CLK_CON_DIV_CLK_CPUCL0_2,
+	CLK_CON_DIV_CLK_CPUCL0_ACLK,
+	CLK_CON_DIV_CLK_CPUCL0_PCLK,
+	CLK_CON_DIV_CLK_CPUCL0_ATCLK,
+	CLK_CON_DIV_CLK_CPUCL0_PCLKDBG,
+	CLK_CON_DIV_CLK_CPUCL0_CNTCLK,
+	CLK_CON_DIV_CLK_CPUCL0_RUN_MONITOR,
+	CLK_CON_DIV_CLK_CPUCL0_HPM,
+	CLK_CON_DIV_CLK_CPUCL0_PLL,
+};
+
+/*
+ * CPU PLL rates from the ECT PLL table (CPUCL0_PLL) of S-BOOT.
+ */
+static const struct samsung_pll_rate_table cpucl0_pll_rates[] __initconst = {
+	PLL_35XX_RATE(26 * MHZ, 2002000000U, 231, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1924000000U, 222, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1794000000U, 207, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1690000000U, 195, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1586000000U, 183, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1430000000U, 165, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1378000000U, 159, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1274000000U, 147, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1144000000U, 132, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 1040000000U, 120, 3, 0),
+	PLL_35XX_RATE(26 * MHZ, 962000000U, 222, 3, 1),
+	PLL_35XX_RATE(26 * MHZ, 828750000U, 255, 4, 1),
+	PLL_35XX_RATE(26 * MHZ, 756600000U, 291, 5, 1),
+	PLL_35XX_RATE(26 * MHZ, 676000000U, 156, 3, 1),
+	PLL_35XX_RATE(26 * MHZ, 546000000U, 126, 3, 1),
+	PLL_35XX_RATE(26 * MHZ, 448500000U, 207, 3, 2),
+	PLL_35XX_RATE(26 * MHZ, 344500000U, 159, 3, 2),
+};
+
+/*
+ * The cluster dividers are the same at every ECT DVFS level (ACLK 1/2,
+ * PCLK/ATCLK/PCLKDBG 1/8, CNTCLK 1/4, ...) and are not touched; the table
+ * only lists the rates the CPU clock may be set to.
+ */
+static const struct exynos_cpuclk_cfg_data exynos7570_cpucl0_clk_d[] __initconst = {
+	{ 2002000, 0 },
+	{ 1924000, 0 },
+	{ 1794000, 0 },
+	{ 1690000, 0 },
+	{ 1586000, 0 },
+	{ 1430000, 0 },
+	{ 1378000, 0 },
+	{ 1274000, 0 },
+	{ 1144000, 0 },
+	{ 1040000, 0 },
+	{ 962000, 0 },
+	{ 828750, 0 },
+	{ 756600, 0 },
+	{ 676000, 0 },
+	{ 546000, 0 },
+	{ 448500, 0 },
+	{ 344500, 0 },
+	{ 0 },
+};
+
+static const struct samsung_cpu_clock cpucl0_cpu_clks[] __initconst = {
+	CPU_CLK(CLK_CPUCL0_CPU, "cpucl0_cpu", CLK_MOUT_CPUCL0_PLL,
+		CLK_MOUT_CPUCL0_SWITCH_USER, 0, 0x0, CPUCLK_LAYOUT_E7570,
+		exynos7570_cpucl0_clk_d),
+};
+
+static const struct samsung_pll_clock cpucl0_pll_clks[] __initconst = {
+	PLL(pll_1417x, CLK_FOUT_CPUCL0_PLL, "fout_cpucl0_pll", "oscclk", CPUCL0_PLL_LOCK, CPUCL0_PLL_CON0, cpucl0_pll_rates),
+};
+
+/* List of parent clocks for muxes in CMU_CPUCL0 */
+PNAME(mout_cpucl0_pll_p) = { "oscclk", "fout_cpucl0_pll" };
+PNAME(mout_cpucl0_switch_user_p) = { "oscclk", "gout_mif_cmu_cpucl0_switch" };
+PNAME(mout_cpucl0_cpu_p) = { "mout_cpucl0_pll", "mout_cpucl0_switch_user" };
+
+static const struct samsung_mux_clock cpucl0_mux_clks[] __initconst = {
+	MUX_F(CLK_MOUT_CPUCL0_PLL, "mout_cpucl0_pll", mout_cpucl0_pll_p, CLK_CON_MUX_CPUCL0_PLL, 12, 1, CLK_SET_RATE_PARENT | CLK_RECALC_NEW_RATES, 0),
+	MUX_F(CLK_MOUT_CPUCL0_SWITCH_USER, "mout_cpucl0_switch_user", mout_cpucl0_switch_user_p, CLK_CON_MUX_CLKCMU_CPUCL0_SWITCH_USER, 12, 1, CLK_SET_RATE_PARENT, 0),
+	MUX(CLK_MOUT_CPUCL0_CPU, "mout_cpucl0_cpu", mout_cpucl0_cpu_p, CLK_CON_MUX_CLK_CPUCL0, 12, 1),
+};
+
+static const struct samsung_div_clock cpucl0_div_clks[] __initconst = {
+	DIV_F(CLK_DOUT_CPUCL0_1, "dout_cpucl0_1", "mout_cpucl0_cpu", CLK_CON_DIV_CLK_CPUCL0_1, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_2, "dout_cpucl0_2", "dout_cpucl0_1", CLK_CON_DIV_CLK_CPUCL0_2, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_ACLK, "dout_cpucl0_aclk", "dout_cpucl0_2", CLK_CON_DIV_CLK_CPUCL0_ACLK, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_PCLK, "dout_cpucl0_pclk", "dout_cpucl0_2", CLK_CON_DIV_CLK_CPUCL0_PCLK, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_ATCLK, "dout_cpucl0_atclk", "dout_cpucl0_2", CLK_CON_DIV_CLK_CPUCL0_ATCLK, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_PCLKDBG, "dout_cpucl0_pclkdbg", "dout_cpucl0_2", CLK_CON_DIV_CLK_CPUCL0_PCLKDBG, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_CNTCLK, "dout_cpucl0_cntclk", "dout_cpucl0_2", CLK_CON_DIV_CLK_CPUCL0_CNTCLK, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_RUN_MONITOR, "dout_cpucl0_run_monitor", "dout_cpucl0_2", CLK_CON_DIV_CLK_CPUCL0_RUN_MONITOR, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_HPM, "dout_cpucl0_hpm", "mout_cpucl0_cpu", CLK_CON_DIV_CLK_CPUCL0_HPM, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_CPUCL0_PLL, "dout_cpucl0_pll", "mout_cpucl0_cpu", CLK_CON_DIV_CLK_CPUCL0_PLL, 0, 3, CLK_GET_RATE_NOCACHE, CLK_DIVIDER_READ_ONLY),
+};
+
+static const struct samsung_cmu_info cpucl0_cmu_info __initconst = {
+	.pll_clks	= cpucl0_pll_clks,
+	.nr_pll_clks	= ARRAY_SIZE(cpucl0_pll_clks),
+	.mux_clks	= cpucl0_mux_clks,
+	.nr_mux_clks	= ARRAY_SIZE(cpucl0_mux_clks),
+	.div_clks	= cpucl0_div_clks,
+	.nr_div_clks	= ARRAY_SIZE(cpucl0_div_clks),
+	.cpu_clks	= cpucl0_cpu_clks,
+	.nr_cpu_clks	= ARRAY_SIZE(cpucl0_cpu_clks),
+	.clk_regs		= cpucl0_clk_regs,
+	.nr_clk_regs		= ARRAY_SIZE(cpucl0_clk_regs),
+	.nr_clk_ids		= CPUCL0_NR_CLK,
+};
+
+/*
  * USB PLL (WPLL), the 20 MHz reference of the USB PHY. The PLL itself is in
  * the WLBT block; USBPLL_CON1 in CMU_FSYS tells who drives it. Without WLBT
  * firmware the AP owns it: select the 26 MHz reference, enable it, hand the
@@ -687,6 +828,10 @@ static const struct of_device_id exynos7570_cmu_of_match[] = {
 	{
 		.compatible = "samsung,exynos7570-cmu-g3d",
 		.data = &g3d_cmu_info,
+	},
+	{
+		.compatible = "samsung,exynos7570-cmu-cpucl0",
+		.data = &cpucl0_cmu_info,
 	},
 	{ },
 };

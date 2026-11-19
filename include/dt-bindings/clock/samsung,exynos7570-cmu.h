@@ -67,7 +67,9 @@
 #define CLK_MOUT_MIF_CMU_G3D                             58
 #define CLK_DOUT_MIF_CMU_G3D                             59
 #define CLK_GOUT_MIF_CMU_G3D                             60
-#define MIF_NR_CLK                                       61
+#define CLK_DOUT_MIF_CMU_CPUCL0_SWITCH                   61
+#define CLK_GOUT_MIF_CMU_CPUCL0_SWITCH                   62
+#define MIF_NR_CLK                                       63
 
 /* CMU_FSYS */
 #define CLK_FRAT_FSYS_USB20DRD_PHYCLOCK                  1
@@ -153,5 +155,23 @@
 #define CLK_DOUT_G3D_APB                                 3
 #define CLK_GOUT_G3D_CLK                                 4
 #define G3D_NR_CLK                                       5
+
+/* CMU_CPUCL0 */
+#define CLK_FOUT_CPUCL0_PLL                              1
+#define CLK_MOUT_CPUCL0_PLL                              2
+#define CLK_MOUT_CPUCL0_SWITCH_USER                      3
+#define CLK_MOUT_CPUCL0_CPU                              4
+#define CLK_DOUT_CPUCL0_1                                5
+#define CLK_DOUT_CPUCL0_2                                6
+#define CLK_DOUT_CPUCL0_ACLK                             7
+#define CLK_DOUT_CPUCL0_PCLK                             8
+#define CLK_DOUT_CPUCL0_ATCLK                            9
+#define CLK_DOUT_CPUCL0_PCLKDBG                          10
+#define CLK_DOUT_CPUCL0_CNTCLK                           11
+#define CLK_DOUT_CPUCL0_RUN_MONITOR                      12
+#define CLK_DOUT_CPUCL0_HPM                              13
+#define CLK_DOUT_CPUCL0_PLL                              14
+#define CLK_CPUCL0_CPU                                   15
+#define CPUCL0_NR_CLK                                    16
 
 #endif /* _DT_BINDINGS_CLOCK_EXYNOS7570_H */

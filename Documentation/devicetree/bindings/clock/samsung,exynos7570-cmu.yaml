@@ -29,6 +29,7 @@ properties:
       - samsung,exynos7570-cmu-peri
       - samsung,exynos7570-cmu-dispaud
       - samsung,exynos7570-cmu-g3d
+      - samsung,exynos7570-cmu-cpucl0
 
   clocks:
     minItems: 1
@@ -93,6 +94,7 @@ allOf:
               - samsung,exynos7570-cmu-mif
               - samsung,exynos7570-cmu-fsys
               - samsung,exynos7570-cmu-peri
+              - samsung,exynos7570-cmu-cpucl0
     then:
       properties:
         clocks:

@@ -564,6 +564,121 @@ static int exynos850_cpuclk_post_rate_change(struct clk_notifier_data *ndata,
 	return exynos850_alt_parent_set_max_rate(alt_parent, 0);
 }
 
+/* ---- Exynos7570 ---------------------------------------------------------- */
+
+/*
+ * CMU_CPUCL0 of the Exynos7570: MUX_CLK_CPUCL0 selects the CPU PLL (0) or
+ * CLKCMU_CPUCL0_SWITCH (1), which comes from SHARED0_PLL/2 through a divider
+ * and a gate in CMU_MIF. The mux status is in a separate register (bits 13:12
+ * read select + 1 once the mux has switched). The cluster dividers stay the
+ * same at every DVFS level (Samsung's ECT DVFS table), so nothing else needs
+ * to be reprogrammed around a PLL rate change.
+ */
+#define E7570_MUX_SEL_SHIFT	12
+#define E7570_MUX_STAT_SHIFT	12
+#define E7570_MUX_STAT_MASK	0x3
+#define E7570_OSCCLK		(26 * MHZ)
+
+static const struct exynos_cpuclk_regs e7570_cpuclk_regs = {
+	.mux_sel	= 0x208,	/* CLK_CON_MUX_CLK_CPUCL0 */
+	.mux_stat	= 0x608,	/* CLK_STAT_MUX_CLK_CPUCL0 */
+};
+
+/*
+ * Set the switch path (alternate parent) to "rate" or less, 0 for its
+ * maximum. The divider is two levels up: user mux -> CMU_MIF gate -> divider.
+ */
+static int exynos7570_alt_parent_set_max_rate(const struct clk_hw *alt_parent,
+					      unsigned long rate)
+{
+	struct clk_hw *gate, *div, *divp;
+	unsigned long divp_rate, d;
+	int ret;
+
+	gate = clk_hw_get_parent(alt_parent);
+	div = gate ? clk_hw_get_parent(gate) : NULL;
+	divp = div ? clk_hw_get_parent(div) : NULL;
+	if (!divp)
+		return -ENOENT;
+	divp_rate = clk_hw_get_rate(divp);
+	if (!divp_rate)
+		return -EINVAL;
+
+	d = rate ? DIV_ROUND_UP(divp_rate, rate) : 1;
+	ret = clk_set_rate(alt_parent->clk, DIV_ROUND_UP(divp_rate, d));
+	if (ret)
+		return ret;
+	udelay(E850_DIV_MUX_STAB_TIME);
+
+	return 0;
+}
+
+static void exynos7570_cpuclk_select(struct exynos_cpuclk *cpuclk, u32 sel)
+{
+	const struct exynos_cpuclk_regs * const regs = cpuclk->chip->regs;
+	void __iomem *base = cpuclk->base;
+	u32 val;
+
+	val = readl(base + regs->mux_sel);
+	val &= ~BIT(E7570_MUX_SEL_SHIFT);
+	val |= sel << E7570_MUX_SEL_SHIFT;
+	writel(val, base + regs->mux_sel);
+	wait_until_mux_stable(base + regs->mux_stat, E7570_MUX_STAT_SHIFT,
+			      E7570_MUX_STAT_MASK, sel + 1);
+}
+
+static int exynos7570_cpuclk_pre_rate_change(struct clk_notifier_data *ndata,
+					     struct exynos_cpuclk *cpuclk)
+{
+	const struct exynos_cpuclk_cfg_data *cfg_data = cpuclk->cfg;
+	unsigned long alt_prate = clk_hw_get_rate(cpuclk->alt_parent);
+	unsigned long flags;
+	int ret;
+
+	if (ndata->new_rate == E7570_OSCCLK || ndata->old_rate == E7570_OSCCLK)
+		return 0;
+
+	/* only rates of the table */
+	while ((cfg_data->prate * 1000) != ndata->new_rate) {
+		if (cfg_data->prate == 0)
+			return -EINVAL;
+		cfg_data++;
+	}
+
+	/*
+	 * The CPU runs from the switch path while the PLL relocks: keep it at
+	 * or below both the old and the new rate, the voltage is only good
+	 * for those.
+	 */
+	if (alt_prate > min(ndata->old_rate, ndata->new_rate)) {
+		ret = exynos7570_alt_parent_set_max_rate(cpuclk->alt_parent,
+				min(ndata->old_rate, ndata->new_rate));
+		if (ret)
+			return ret;
+	}
+
+	spin_lock_irqsave(cpuclk->lock, flags);
+	exynos7570_cpuclk_select(cpuclk, 1);
+	spin_unlock_irqrestore(cpuclk->lock, flags);
+
+	return 0;
+}
+
+static int exynos7570_cpuclk_post_rate_change(struct clk_notifier_data *ndata,
+					      struct exynos_cpuclk *cpuclk)
+{
+	unsigned long flags;
+
+	if (ndata->new_rate == E7570_OSCCLK || ndata->old_rate == E7570_OSCCLK)
+		return 0;
+
+	spin_lock_irqsave(cpuclk->lock, flags);
+	exynos7570_cpuclk_select(cpuclk, 0);
+	spin_unlock_irqrestore(cpuclk->lock, flags);
+
+	return exynos7570_alt_parent_set_max_rate(cpuclk->alt_parent, 0);
+}
+
 /* -------------------------------------------------------------------------- */
 
 /* Common round rate callback usable for all types of CPU clocks */
@@ -635,6 +750,11 @@ static const struct exynos_cpuclk_chip exynos_clkcpu_chips[] = {
 		.regs		= &e850cl1_cpuclk_regs,
 		.pre_rate_cb	= exynos850_cpuclk_pre_rate_change,
 		.post_rate_cb	= exynos850_cpuclk_post_rate_change,
+	},
+	[CPUCLK_LAYOUT_E7570] = {
+		.regs		= &e7570_cpuclk_regs,
+		.pre_rate_cb	= exynos7570_cpuclk_pre_rate_change,
+		.post_rate_cb	= exynos7570_cpuclk_post_rate_change,
 	},
 };
 
