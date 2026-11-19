@@ -127,7 +127,9 @@
 #define CLK_GOUT_PERI_GPIO_ESE_PCLK                      37
 #define CLK_GOUT_PERI_GPIO_ALIVE_PCLK                    38
 #define CLK_GOUT_PERI_SYSREG_PCLK                        39
-#define PERI_NR_CLK                                      40
+#define CLK_GOUT_PERI_TMU_PCLK                           40
+#define CLK_GOUT_PERI_TMU_CLK                            41
+#define PERI_NR_CLK                                      42
 
 /* CMU_DISPAUD */
 #define CLK_FRAT_DISPAUD_MIPIPHY_TXBYTECLKHS             1

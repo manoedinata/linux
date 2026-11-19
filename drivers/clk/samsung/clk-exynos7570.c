@@ -338,6 +338,7 @@ static const struct samsung_cmu_info fsys_cmu_info __initconst = {
  */
 #define CLK_CON_DIV_CLK_PERI_USI_0_SPI                   0x0400
 #define CLK_CON_DIV_CLK_PERI_USI_1_SPI                   0x0404
+#define CLK_ENABLE_CLK_PERI_OSCCLK                       0x0800
 #define CLK_ENABLE_CLK_PERI_BUS0                         0x0810
 #define CLK_ENABLE_CLK_PERI_BUS1                         0x0814
 #define CLK_ENABLE_CLK_PERI_BUS_SECURE_CHIPID            0x081c
@@ -355,6 +356,7 @@ static const struct samsung_cmu_info fsys_cmu_info __initconst = {
 static const unsigned long peri_clk_regs[] __initconst = {
 	CLK_CON_DIV_CLK_PERI_USI_0_SPI,
 	CLK_CON_DIV_CLK_PERI_USI_1_SPI,
+	CLK_ENABLE_CLK_PERI_OSCCLK,
 	CLK_ENABLE_CLK_PERI_BUS0,
 	CLK_ENABLE_CLK_PERI_BUS1,
 	CLK_ENABLE_CLK_PERI_BUS_SECURE_CHIPID,
@@ -413,6 +415,8 @@ static const struct samsung_gate_clock peri_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_PERI_GPIO_ESE_PCLK, "gout_peri_gpio_ese_pclk", "gout_mif_cmu_peri_bus", CLK_ENABLE_CLK_PERI_BUS0, 7, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_PERI_GPIO_ALIVE_PCLK, "gout_peri_gpio_alive_pclk", "gout_mif_cmu_peri_bus", CLK_ENABLE_CLK_PERI_BUS1, 0, CLK_IS_CRITICAL, 0),
 	GATE(CLK_GOUT_PERI_SYSREG_PCLK, "gout_peri_sysreg_pclk", "gout_mif_cmu_peri_bus", CLK_ENABLE_CLK_PERI_BUS1, 9, CLK_IS_CRITICAL, 0),
+	GATE(CLK_GOUT_PERI_TMU_PCLK, "gout_peri_tmu_pclk", "gout_mif_cmu_peri_bus", CLK_ENABLE_CLK_PERI_BUS1, 1, CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_PERI_TMU_CLK, "gout_peri_tmu_clk", "oscclk", CLK_ENABLE_CLK_PERI_OSCCLK, 4, 0, 0),
 };
 
 static const struct samsung_cmu_info peri_cmu_info __initconst = {
