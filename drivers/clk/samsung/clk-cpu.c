@@ -598,8 +598,12 @@ static int exynos7570_alt_parent_set_max_rate(const struct clk_hw *alt_parent,
 	gate = clk_hw_get_parent(alt_parent);
 	div = gate ? clk_hw_get_parent(gate) : NULL;
 	divp = div ? clk_hw_get_parent(div) : NULL;
+	/*
+	 * S-BOOT leaves the switch user mux on OSCCLK: the cluster then runs at
+	 * 26 MHz while the PLL relocks, below every CPU level, nothing to set.
+	 */
 	if (!divp)
-		return -ENOENT;
+		return 0;
 	divp_rate = clk_hw_get_rate(divp);
 	if (!divp_rate)
 		return -EINVAL;
