@@ -90,45 +90,45 @@ extern int       *slsi_dbg_filters[];
 	} while (0)
 
 #define SLSI_ERR(sdev, fmt, arg ...)                SLSI_EWI(dev_err,  sdev, "E", fmt, ## arg)
-#define SLSI_WARN(sdev, fmt, arg ...)               SLSI_EWI(dev_warn, sdev, "W", fmt, ## arg)
-#define SLSI_INFO(sdev, fmt, arg ...)               SLSI_EWI(dev_info, sdev, "I", fmt, ## arg)
+#define SLSI_WARN(sdev, fmt, arg ...)               SLSI_EWI(scsc_q_dev_warn, sdev, "W", fmt, ## arg)
+#define SLSI_INFO(sdev, fmt, arg ...)               SLSI_EWI(scsc_q_dev_info, sdev, "I", fmt, ## arg)
 
 #define SLSI_NET_ERR(ndev, fmt, arg ...)            SLSI_EWI_NET(dev_err,  ndev, "E", fmt, ## arg)
-#define SLSI_NET_WARN(ndev, fmt, arg ...)           SLSI_EWI_NET(dev_warn, ndev, "W", fmt, ## arg)
-#define SLSI_NET_INFO(ndev, fmt, arg ...)           SLSI_EWI_NET(dev_info, ndev, "I", fmt, ## arg)
+#define SLSI_NET_WARN(ndev, fmt, arg ...)           SLSI_EWI_NET(scsc_q_dev_warn, ndev, "W", fmt, ## arg)
+#define SLSI_NET_INFO(ndev, fmt, arg ...)           SLSI_EWI_NET(scsc_q_dev_info, ndev, "I", fmt, ## arg)
 
 #define SLSI_ERR_NODEV(fmt, arg ...)                SLSI_EWI_NODEV(pr_err,  "E", fmt, ## arg)
-#define SLSI_WARN_NODEV(fmt, arg ...)               SLSI_EWI_NODEV(pr_warn, "W", fmt, ## arg)
-#define SLSI_INFO_NODEV(fmt, arg ...)               SLSI_EWI_NODEV(pr_info, "I", fmt, ## arg)
+#define SLSI_WARN_NODEV(fmt, arg ...)               SLSI_EWI_NODEV(scsc_q_pr_warn, "W", fmt, ## arg)
+#define SLSI_INFO_NODEV(fmt, arg ...)               SLSI_EWI_NODEV(scsc_q_pr_info, "I", fmt, ## arg)
 
 #define SLSI_ERR_HEX(sdev, p, len, fmt, arg ...)    SLSI_EWI_HEX(dev_err,  KERN_ERR, sdev,  "E", p, len, fmt, ## arg)
-#define SLSI_WARN_HEX(sdev, p, len, fmt, arg ...)   SLSI_EWI_HEX(dev_warn, KERN_WARN, sdev, "W", p, len, fmt, ## arg)
-#define SLSI_INFO_HEX(sdev, p, len, fmt, arg ...)   SLSI_EWI_HEX(dev_info, KERN_INFO, sdev, "I", p, len, fmt, ## arg)
+#define SLSI_WARN_HEX(sdev, p, len, fmt, arg ...)   SCSC_Q(SLSI_EWI_HEX(dev_warn, KERN_WARN, sdev, "W", p, len, fmt, ## arg))
+#define SLSI_INFO_HEX(sdev, p, len, fmt, arg ...)   SCSC_Q(SLSI_EWI_HEX(dev_info, KERN_INFO, sdev, "I", p, len, fmt, ## arg))
 
 #define SLSI_ERR_HEX_NODEV(p, len, fmt, arg ...)    SLSI_EWI_HEX_NODEV(pr_err,  KERN_ERR,  "E", p, len, fmt, ## arg)
-#define SLSI_WARN_HEX_NODEV(p, len, fmt, arg ...)   SLSI_EWI_HEX_NODEV(pr_warn, KERN_WARN, "W", p, len, fmt, ## arg)
-#define SLSI_INFO_HEX_NODEV(p, len, fmt, arg ...)   SLSI_EWI_HEX_NODEV(pr_info, KERN_INFO, "I", p, len, fmt, ## arg)
+#define SLSI_WARN_HEX_NODEV(p, len, fmt, arg ...)   SCSC_Q(SLSI_EWI_HEX_NODEV(pr_warn, KERN_WARN, "W", p, len, fmt, ## arg))
+#define SLSI_INFO_HEX_NODEV(p, len, fmt, arg ...)   SCSC_Q(SLSI_EWI_HEX_NODEV(pr_info, KERN_INFO, "I", p, len, fmt, ## arg))
 
 #ifdef CONFIG_SCSC_WLAN_DEBUG
 
 #define SLSI_DBG(sdev, filter, dbg_lvl, fmt, arg ...) \
 	do { \
 		if (unlikely((dbg_lvl) <= *slsi_dbg_filters[filter])) { \
-			SLSI_EWI(dev_info, sdev, # dbg_lvl, fmt, ## arg); \
+			SLSI_EWI(scsc_q_dev_info, sdev, # dbg_lvl, fmt, ## arg); \
 		} \
 	} while (0)
 
 #define SLSI_DBG_NET(ndev, filter, dbg_lvl, fmt, arg ...) \
 	do { \
 		if (unlikely((dbg_lvl) <= *slsi_dbg_filters[filter])) { \
-			SLSI_EWI_NET(dev_info, ndev, # dbg_lvl, fmt, ## arg); \
+			SLSI_EWI_NET(scsc_q_dev_info, ndev, # dbg_lvl, fmt, ## arg); \
 		} \
 	} while (0)
 
 #define SLSI_DBG_NODEV(filter, dbg_lvl, fmt, arg ...) \
 	do { \
 		if (unlikely((dbg_lvl) <= *slsi_dbg_filters[filter])) { \
-			SLSI_EWI_NODEV(pr_info, # dbg_lvl, fmt, ## arg); \
+			SLSI_EWI_NODEV(scsc_q_pr_info, # dbg_lvl, fmt, ## arg); \
 		} \
 	} while (0)
 

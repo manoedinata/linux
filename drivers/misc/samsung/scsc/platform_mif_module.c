@@ -17,6 +17,12 @@
 /* Implements */
 #include "scsc_mif_abs.h"
 
+/* Print SCSC info/notice/warning messages (scsc_logring.h); errors always print */
+bool scsc_log_verbose;
+EXPORT_SYMBOL(scsc_log_verbose);
+module_param_named(verbose, scsc_log_verbose, bool, 0644);
+MODULE_PARM_DESC(verbose, "Print SCSC WLBT info and warning messages");
+
 /* Variables */
 struct mif_abs_node {
 	struct list_head    list;

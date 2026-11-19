@@ -12,6 +12,9 @@
 #include <linux/printk.h>
 #include <linux/device.h>
 
+/* platform_mif_module.c, module parameter scsc_platform_mif.verbose */
+extern bool scsc_log_verbose;
+
 /* NOTE_CREATING_TAGS: when adding a tag here REMEMBER to add it also
  * where required, taking care to maintain the same ordering.
  * (Search 4 NOTE_CREATING_TAGS)
@@ -407,29 +410,45 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 
 #else /* CONFIG_SCSC_PRINTK */
 
+/*
+ * Info, notice and warning messages print only with
+ * scsc_platform_mif.verbose=1: the kernel console (ignore_loglevel) would
+ * otherwise show the driver's chatter on the display. Errors always print.
+ */
+#define SCSC_Q(call)	do { if (scsc_log_verbose) call; } while (0)
+#define scsc_q_pr_warn(...)		SCSC_Q(pr_warn(__VA_ARGS__))
+#define scsc_q_pr_notice(...)		SCSC_Q(pr_notice(__VA_ARGS__))
+#define scsc_q_pr_info(...)		SCSC_Q(pr_info(__VA_ARGS__))
+#define scsc_q_dev_warn(...)		SCSC_Q(dev_warn(__VA_ARGS__))
+#define scsc_q_dev_notice(...)		SCSC_Q(dev_notice(__VA_ARGS__))
+#define scsc_q_dev_info(...)		SCSC_Q(dev_info(__VA_ARGS__))
+#define scsc_q_printk(...)		SCSC_Q(printk(__VA_ARGS__))
+#define scsc_q_print_hex_dump(...)	SCSC_Q(print_hex_dump(__VA_ARGS__))
+
+
 #define SCSC_TAG_LVL(tag, lvl, fmt, args...)	\
 	do {\
-		if ((lvl) < 7)\
+		if ((lvl) < 4 || ((lvl) < 7 && scsc_log_verbose))\
 			printk_emit(0, (lvl), NULL, 0, fmt, ## args);\
 	} while (0)
 
 #define SCSC_TAG_DEV_LVL(tag, lvl, dev, fmt, args...) \
 	do {\
-		if ((lvl) < 7)\
+		if ((lvl) < 4 || ((lvl) < 7 && scsc_log_verbose))\
 			dev_printk_emit((lvl), (dev), fmt, ## args);\
 	} while (0)
 
-#define SCSC_PRINTK(fmt, args ...)               printk(SCSC_PREFIX fmt, ## args)
-#define SCSC_PRINTK_TAG(tag, fmt, args ...)      printk(SCSC_PREFIX "[" # tag "] "fmt, ## args)
-#define SCSC_PRINTK_BIN(start, len)              print_hex_dump(KERN_INFO, \
+#define SCSC_PRINTK(fmt, args ...)               scsc_q_printk(SCSC_PREFIX fmt, ## args)
+#define SCSC_PRINTK_TAG(tag, fmt, args ...)      scsc_q_printk(SCSC_PREFIX "[" # tag "] "fmt, ## args)
+#define SCSC_PRINTK_BIN(start, len)              scsc_q_print_hex_dump(KERN_INFO, \
 							       SCSC_PREFIX"[BINARY]->|", \
 							       DUMP_PREFIX_ADDRESS, \
 							       16, 4, start, \
 							       len, true)
 
-#define SCSC_PRINTK_FF(fmt, args ...)            printk(SCSC_PREFIX fmt, ## args)
-#define SCSC_PRINTK_TAG_FF(tag, fmt, args ...)   printk(SCSC_PREFIX"[" # tag "] "fmt, ## args)
-#define SCSC_PRINTK_BIN_FF(start, len)           print_hex_dump(KERN_INFO, \
+#define SCSC_PRINTK_FF(fmt, args ...)            scsc_q_printk(SCSC_PREFIX fmt, ## args)
+#define SCSC_PRINTK_TAG_FF(tag, fmt, args ...)   scsc_q_printk(SCSC_PREFIX"[" # tag "] "fmt, ## args)
+#define SCSC_PRINTK_BIN_FF(start, len)           scsc_q_print_hex_dump(KERN_INFO, \
 							       SCSC_PREFIX"[BINARY]->|", \
 							       DUMP_PREFIX_ADDRESS, \
 							       16, 4, start, \
@@ -439,9 +458,9 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 #define SCSC_ALERT(fmt, args...)        pr_alert(SCSC_DBG_FMT(fmt), __func__, ## args)
 #define SCSC_CRIT(fmt, args...)         pr_crit(SCSC_DBG_FMT(fmt), __func__, ## args)
 #define SCSC_ERR(fmt, args...)          pr_err(SCSC_DBG_FMT(fmt), __func__, ## args)
-#define SCSC_WARNING(fmt, args...)      pr_warn(SCSC_DBG_FMT(fmt), __func__, ## args)
-#define SCSC_NOTICE(fmt, args...)	pr_notice(SCSC_DBG_FMT(fmt), __func__, ## args)
-#define SCSC_INFO(fmt, args...)		pr_info(SCSC_DBG_FMT(fmt), __func__, ## args)
+#define SCSC_WARNING(fmt, args...)      scsc_q_pr_warn(SCSC_DBG_FMT(fmt), __func__, ## args)
+#define SCSC_NOTICE(fmt, args...)	scsc_q_pr_notice(SCSC_DBG_FMT(fmt), __func__, ## args)
+#define SCSC_INFO(fmt, args...)		scsc_q_pr_info(SCSC_DBG_FMT(fmt), __func__, ## args)
 #define SCSC_DEBUG(args...)		do {} while (0)
 
 /* Reverting to pr_* keeping the [tag] */
@@ -454,11 +473,11 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 #define SCSC_TAG_ERR(tag, fmt, args...)         \
 	pr_err(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
 #define SCSC_TAG_WARNING(tag, fmt, args...)     \
-	pr_warn(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
+	scsc_q_pr_warn(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
 #define SCSC_TAG_NOTICE(tag, fmt, args...)      \
-	pr_notice(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
+	scsc_q_pr_notice(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
 #define SCSC_TAG_INFO(tag, fmt, args...)	 \
-	pr_info(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
+	scsc_q_pr_info(SCSC_TAG_DBG_FMT(tag, fmt), __func__, ## args)
 #define SCSC_TAG_DEBUG(tag, fmt, args...)        do {} while (0)
 
 
@@ -486,19 +505,19 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 						       16, 4, start, \
 						       len, true)
 
-#define SCSC_BIN_WARNING(start, len)    print_hex_dump(KERN_WARNING, \
+#define SCSC_BIN_WARNING(start, len)    scsc_q_print_hex_dump(KERN_WARNING, \
 						       SCSC_PREFIX"[BINARY]->|", \
 						       DUMP_PREFIX_ADDRESS, \
 						       16, 4, start, \
 						       len, true)
 
-#define SCSC_BIN_NOTICE(start, len)     print_hex_dump(KERN_NOTICE, \
+#define SCSC_BIN_NOTICE(start, len)     scsc_q_print_hex_dump(KERN_NOTICE, \
 						       SCSC_PREFIX"[BINARY]->|", \
 						       DUMP_PREFIX_ADDRESS, \
 						       16, 4, start, \
 						       len, true)
 
-#define SCSC_BIN_INFO(start, len)       print_hex_dump(KERN_INFO, \
+#define SCSC_BIN_INFO(start, len)       scsc_q_print_hex_dump(KERN_INFO, \
 						       SCSC_PREFIX"[BINARY]->|", \
 						       DUMP_PREFIX_ADDRESS, \
 						       16, 4, start, \
@@ -531,19 +550,19 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 								16, 4, start, \
 								len, true)
 
-#define SCSC_BIN_TAG_WARNING(tag, start, len)    print_hex_dump(KERN_WARNING, \
+#define SCSC_BIN_TAG_WARNING(tag, start, len)    scsc_q_print_hex_dump(KERN_WARNING, \
 								SCSC_PREFIX"[" # tag "]->|", \
 								DUMP_PREFIX_ADDRESS, \
 								16, 4, start, \
 								len, true)
 
-#define SCSC_BIN_TAG_NOTICE(tag, start, len)     print_hex_dump(KERN_NOTICE, \
+#define SCSC_BIN_TAG_NOTICE(tag, start, len)     scsc_q_print_hex_dump(KERN_NOTICE, \
 								SCSC_PREFIX"[" # tag "]->|", \
 								DUMP_PREFIX_ADDRESS, \
 								16, 4, start, \
 								len, true)
 
-#define SCSC_BIN_TAG_INFO(tag, start, len)       print_hex_dump(KERN_INFO, \
+#define SCSC_BIN_TAG_INFO(tag, start, len)       scsc_q_print_hex_dump(KERN_INFO, \
 								SCSC_PREFIX"[" # tag "]->|", \
 								DUMP_PREFIX_NONE, \
 								16, 1, start, \
@@ -556,9 +575,9 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 #define SCSC_ALERT_FF(args ...)          pr_alert(SCSC_PREFIX args)
 #define SCSC_CRIT_FF(args ...)           pr_crit(SCSC_PREFIX args)
 #define SCSC_ERR_FF(args ...)            pr_err(SCSC_PREFIX args)
-#define SCSC_WARNING_FF(args ...)        pr_warn(SCSC_PREFIX args)
-#define SCSC_NOTICE_FF(args ...)         pr_notice(SCSC_PREFIX args)
-#define SCSC_INFO_FF(args ...)           pr_info(SCSC_PREFIX args)
+#define SCSC_WARNING_FF(args ...)        scsc_q_pr_warn(SCSC_PREFIX args)
+#define SCSC_NOTICE_FF(args ...)         scsc_q_pr_notice(SCSC_PREFIX args)
+#define SCSC_INFO_FF(args ...)           scsc_q_pr_info(SCSC_PREFIX args)
 #define SCSC_DEBUG_FF(args ...)          do {} while (0)
 
 
@@ -570,11 +589,11 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 							__func__, ## args)
 #define SCSC_TAG_ERR_FF(tag, fmt, args ...)	pr_err(SCSC_TAG_DBG_FMT(tag, fmt), \
 							__func__, ## args)
-#define SCSC_TAG_WARNING_FF(tag, fmt, args ...) pr_warn(SCSC_TAG_DBG_FMT(tag, fmt), \
+#define SCSC_TAG_WARNING_FF(tag, fmt, args ...) scsc_q_pr_warn(SCSC_TAG_DBG_FMT(tag, fmt), \
 							__func__, ## args)
-#define SCSC_TAG_NOTICE_FF(tag, fmt, args ...)	pr_notice(SCSC_TAG_DBG_FMT(tag, fmt), \
+#define SCSC_TAG_NOTICE_FF(tag, fmt, args ...)	scsc_q_pr_notice(SCSC_TAG_DBG_FMT(tag, fmt), \
 							__func__, ## args)
-#define SCSC_TAG_INFO_FF(tag, fmt, args ...)    pr_info(SCSC_TAG_DBG_FMT(tag, fmt), \
+#define SCSC_TAG_INFO_FF(tag, fmt, args ...)    scsc_q_pr_info(SCSC_TAG_DBG_FMT(tag, fmt), \
 							__func__, ## args)
 #define SCSC_TAG_DEBUG_FF(tag, fmt, args ...)   do {} while (0)
 
@@ -602,19 +621,19 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 							       16, 4, start, \
 							       len, true)
 
-#define SCSC_BIN_WARNING_FF(start, len)         print_hex_dump(KERN_WARNING, \
+#define SCSC_BIN_WARNING_FF(start, len)         scsc_q_print_hex_dump(KERN_WARNING, \
 							       SCSC_PREFIX"[BINARY]->|", \
 							       DUMP_PREFIX_ADDRESS, \
 							       16, 4, start, \
 							       len, true)
 
-#define SCSC_BIN_NOTICE_FF(start, len)          print_hex_dump(KERN_NOTICE, \
+#define SCSC_BIN_NOTICE_FF(start, len)          scsc_q_print_hex_dump(KERN_NOTICE, \
 							       SCSC_PREFIX"[BINARY]->|", \
 							       DUMP_PREFIX_ADDRESS, \
 							       16, 4, start, \
 							       len, true)
 
-#define SCSC_BIN_INFO_FF(start, len)            print_hex_dump(KERN_INFO, \
+#define SCSC_BIN_INFO_FF(start, len)            scsc_q_print_hex_dump(KERN_INFO, \
 							       SCSC_PREFIX"[BINARY]->|", \
 							       DUMP_PREFIX_ADDRESS, \
 							       16, 4, start, \
@@ -628,11 +647,11 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 		__func__, ## args)
 
 #define SCSC_TAG_WARNING_SDEV(sdev, tag, fmt, args...) \
-	dev_warn(SCSC_SDEV_2_DEV((sdev)), SCSC_TAG_DBG_FMT(tag, fmt), \
+	scsc_q_dev_warn(SCSC_SDEV_2_DEV((sdev)), SCSC_TAG_DBG_FMT(tag, fmt), \
 		 __func__, ## args)
 
 #define SCSC_TAG_INFO_SDEV(sdev, tag, fmt, args...) \
-	dev_info(SCSC_SDEV_2_DEV((sdev)), SCSC_TAG_DBG_FMT(tag, fmt), \
+	scsc_q_dev_info(SCSC_SDEV_2_DEV((sdev)), SCSC_TAG_DBG_FMT(tag, fmt), \
 		 __func__, ## args)
 
 #define SCSC_TAG_DEBUG_SDEV(sdev, tag, fmt, args...)	do {} while (0)
@@ -642,10 +661,10 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 	dev_err(SCSC_NDEV_2_DEV((ndev)), SCSC_TAG_FMT(tag, fmt), \
 		((ndev) ? netdev_name(ndev) : NODEV_LABEL), __func__, ## args)
 #define SCSC_TAG_WARNING_NDEV(ndev, tag, fmt, args...) \
-	dev_warn(SCSC_NDEV_2_DEV((ndev)), SCSC_TAG_FMT(tag, fmt), \
+	scsc_q_dev_warn(SCSC_NDEV_2_DEV((ndev)), SCSC_TAG_FMT(tag, fmt), \
 		    ((ndev) ? netdev_name(ndev) : NODEV_LABEL), __func__, ## args)
 #define SCSC_TAG_INFO_NDEV(ndev, tag, fmt, args...) \
-	dev_info(SCSC_NDEV_2_DEV((ndev)), SCSC_TAG_FMT(tag, fmt), \
+	scsc_q_dev_info(SCSC_NDEV_2_DEV((ndev)), SCSC_TAG_FMT(tag, fmt), \
 		 ((ndev) ? netdev_name(ndev) : NODEV_LABEL), __func__, ## args)
 
 #define SCSC_TAG_DEBUG_NDEV(ndev, tag, fmt, args...)	do {} while (0)
@@ -655,11 +674,11 @@ int scsc_printk_bin(int force, int tag, int dlev, const void *start, size_t len)
 		__func__, ## args)
 
 #define SCSC_TAG_WARNING_DEV(tag, dev, fmt, args...) \
-	dev_warn(dev, SCSC_TAG_DBG_FMT(tag, fmt), \
+	scsc_q_dev_warn(dev, SCSC_TAG_DBG_FMT(tag, fmt), \
 		 __func__, ## args)
 
 #define SCSC_TAG_INFO_DEV(tag, dev, fmt, args...) \
-	dev_info(dev, SCSC_TAG_DBG_FMT(tag, fmt), \
+	scsc_q_dev_info(dev, SCSC_TAG_DBG_FMT(tag, fmt), \
 		 __func__, ## args)
 
 #define SCSC_TAG_DEBUG_DEV(tag, dev, fmt, args...)	do {} while (0)
