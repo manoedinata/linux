@@ -347,6 +347,15 @@
 			label = "G3D";
 		};
 
+		cmu_cpucl0: clock-controller@10900000 {
+			compatible = "samsung,exynos7570-cmu-cpucl0";
+			reg = <0x10900000 0x2000>;
+			#clock-cells = <1>;
+
+			clock-names = "oscclk";
+			clocks = <&oscclk>;
+		};
+
 		cmu_g3d: clock-controller@11460000 {
 			compatible = "samsung,exynos7570-cmu-g3d";
 			reg = <0x11460000 0x1000>;
