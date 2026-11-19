@@ -7,6 +7,7 @@
 
 #include <dt-bindings/clock/samsung,exynos7570-cmu.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "samsung,exynos7570";
@@ -53,6 +54,7 @@
 			reg = <0x0>;
 			enable-method = "psci";
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
 		};
 
@@ -62,6 +64,7 @@
 			reg = <0x1>;
 			enable-method = "psci";
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
 		};
 
@@ -71,6 +74,7 @@
 			reg = <0x2>;
 			enable-method = "psci";
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
 		};
 
@@ -80,6 +84,7 @@
 			reg = <0x3>;
 			enable-method = "psci";
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
+			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
 		};
 	};
@@ -146,6 +151,57 @@
 		opp-1378000000 {
 			opp-hz = /bits/ 64 <1378000000>;
 			clock-latency-ns = <100000>;
+		};
+	};
+
+	/*
+	 * Downstream has no trip levels for the 7570 TMU; these are the usual
+	 * phone SoC ones: throttle the CPUs from 80 C, harder from 90 C, power
+	 * off at 110 C.
+	 */
+	thermal-zones {
+		cpu-thermal {
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+			thermal-sensors = <&tmu>;
+
+			trips {
+				cpu_alert0: cpu-alert0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+
+				cpu_alert1: cpu-alert1 {
+					temperature = <90000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+
+				cpu-crit {
+					temperature = <110000>;
+					hysteresis = <0>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT 4>,
+							 <&cpu1 THERMAL_NO_LIMIT 4>,
+							 <&cpu2 THERMAL_NO_LIMIT 4>,
+							 <&cpu3 THERMAL_NO_LIMIT 4>;
+				};
+
+				map1 {
+					trip = <&cpu_alert1>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
 		};
 	};
 
@@ -418,6 +474,16 @@
 			reg = <0x11c84000 0x20>;
 			#power-domain-cells = <0>;
 			label = "G3D";
+		};
+
+		tmu: tmu@10130000 {
+			compatible = "samsung,exynos7570-tmu";
+			reg = <0x10130000 0x200>;
+			interrupts = <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu_peri CLK_GOUT_PERI_TMU_PCLK>,
+				 <&cmu_peri CLK_GOUT_PERI_TMU_CLK>;
+			clock-names = "tmu_apbif", "tmu_sclk";
+			#thermal-sensor-cells = <0>;
 		};
 
 		cmu_cpucl0: clock-controller@10900000 {
