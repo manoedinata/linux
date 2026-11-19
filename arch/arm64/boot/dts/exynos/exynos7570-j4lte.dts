@@ -138,8 +138,8 @@
  * CPU voltages: the ASV voltages the downstream kernel used on this J4
  * (ECT DVFS dvfs_cpucl0 with the chip's ASV group), raised to the 825 mV
  * BUCK1 floor where they are lower. 1430 MHz is the highest level Samsung
- * enables for the chip (ECT CAL max), a boost level: 1378 MHz stays the top
- * normal level, the rate S-BOOT leaves running.
+ * enables for the chip (ECT CAL max). Not a boost level: schedutil never
+ * goes above the top normal level on arm64 (its reference frequency).
  */
 &cpu_opp_table {
 	opp-344500000 {
@@ -179,7 +179,6 @@
 		opp-hz = /bits/ 64 <1430000000>;
 		opp-microvolt = <950000>;
 		clock-latency-ns = <100000>;
-		turbo-mode;	/* cpufreq boost */
 	};
 };
 
