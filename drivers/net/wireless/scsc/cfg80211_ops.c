@@ -3105,6 +3105,11 @@ static int slsi_cfg80211_set_default_mgmt_key(struct wiphy *wiphy, struct net_de
 	return slsi_config_default_mgmt_key(wiphy, dev, key_index);
 }
 
+/*
+ * The radio_idx arguments are newer than the in-tree cfg80211 of 6.12; the
+ * mac80211 backports (OpenWrt, CPTCFG_*) have them.
+ */
+#if defined(CPTCFG_CFG80211) || defined(CPTCFG_CFG80211_MODULE)
 static int slsi_cfg80211_set_wiphy_params(struct wiphy *wiphy, int radio_idx, u32 changed)
 {
 	return slsi_set_wiphy_params(wiphy, changed);
@@ -3121,6 +3126,23 @@ static int slsi_cfg80211_get_tx_power(struct wiphy *wiphy, struct wireless_dev *
 {
 	return slsi_get_tx_power(wiphy, wdev, dbm);
 }
+#else
+static int slsi_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+{
+	return slsi_set_wiphy_params(wiphy, changed);
+}
+
+static int slsi_cfg80211_set_tx_power(struct wiphy *wiphy, struct wireless_dev *wdev,
+				      enum nl80211_tx_power_setting type, int mbm)
+{
+	return slsi_set_tx_power(wiphy, wdev, type, mbm);
+}
+
+static int slsi_cfg80211_get_tx_power(struct wiphy *wiphy, struct wireless_dev *wdev, int *dbm)
+{
+	return slsi_get_tx_power(wiphy, wdev, dbm);
+}
+#endif
 
 static int slsi_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *dev,
 				       struct cfg80211_ap_update *info)
