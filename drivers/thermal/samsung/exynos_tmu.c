@@ -133,6 +133,7 @@ enum soc_type {
 	SOC_ARCH_EXYNOS5420_TRIMINFO,
 	SOC_ARCH_EXYNOS5433,
 	SOC_ARCH_EXYNOS7,
+	SOC_ARCH_EXYNOS7570,
 };
 
 /**
@@ -203,6 +204,12 @@ struct exynos_tmu_data {
  * TMU treats temperature as a mapped temperature code.
  * The temperature is converted differently depending on the calibration type.
  */
+/* Exynos7570 (TEM1455X sensor) has the register layout of the Exynos7 TMU */
+static bool exynos7_layout(const struct exynos_tmu_data *data)
+{
+	return data->soc == SOC_ARCH_EXYNOS7 || data->soc == SOC_ARCH_EXYNOS7570;
+}
+
 static int temp_to_code(struct exynos_tmu_data *data, u8 temp)
 {
 	if (data->cal_type == TYPE_ONE_POINT_TRIMMING)
@@ -232,7 +239,7 @@ static int code_to_temp(struct exynos_tmu_data *data, u16 temp_code)
 static void sanitize_temp_error(struct exynos_tmu_data *data, u32 trim_info)
 {
 	u16 tmu_temp_mask =
-		(data->soc == SOC_ARCH_EXYNOS7) ? EXYNOS7_TMU_TEMP_MASK
+		exynos7_layout(data) ? EXYNOS7_TMU_TEMP_MASK
 						: EXYNOS_TMU_TEMP_MASK;
 
 	data->temp_error1 = trim_info & tmu_temp_mask;
@@ -355,7 +362,7 @@ static void exynos_tmu_update_temp(struct exynos_tmu_data *data, int reg_off,
 	u32 th;
 
 	tmu_temp_mask =
-		(data->soc == SOC_ARCH_EXYNOS7) ? EXYNOS7_TMU_TEMP_MASK
+		exynos7_layout(data) ? EXYNOS7_TMU_TEMP_MASK
 						: EXYNOS_TMU_TEMP_MASK;
 
 	th = readl(data->base + reg_off);
@@ -582,6 +589,36 @@ static void exynos7_tmu_initialize(struct platform_device *pdev)
 	sanitize_temp_error(data, trim_info);
 }
 
+/*
+ * Exynos7570: S-BOOT leaves the TMU running with its reference voltage,
+ * slope and noise cancel mode set (the downstream driver never rewrites them
+ * on this TEM1455X sensor), and TRIMINFO holds the 9-bit code of 25 C
+ * (one-point trimming: the 85 C field is empty).
+ */
+static void exynos7570_tmu_initialize(struct platform_device *pdev)
+{
+	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
+	u32 trim_info = readl(data->base + EXYNOS_TMU_REG_TRIMINFO);
+
+	data->temp_error1 = trim_info & EXYNOS7_TMU_TEMP_MASK;
+	if (!data->temp_error1)
+		data->temp_error1 = data->efuse_value;
+	data->temp_error2 = 0;
+}
+
+static void exynos7570_tmu_control(struct platform_device *pdev, bool on)
+{
+	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
+	u32 con = readl(data->base + EXYNOS_TMU_REG_CONTROL);
+
+	if (on)
+		con |= BIT(EXYNOS_TMU_CORE_EN_SHIFT);
+	else
+		con &= ~BIT(EXYNOS_TMU_CORE_EN_SHIFT);
+
+	writel(con, data->base + EXYNOS_TMU_REG_CONTROL);
+}
+
 static void exynos4210_tmu_control(struct platform_device *pdev, bool on)
 {
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
@@ -671,7 +708,7 @@ static u32 get_emul_con_reg(struct exynos_tmu_data *data, unsigned int val,
 
 		val &= ~(EXYNOS_EMUL_TIME_MASK << EXYNOS_EMUL_TIME_SHIFT);
 		val |= (EXYNOS_EMUL_TIME << EXYNOS_EMUL_TIME_SHIFT);
-		if (data->soc == SOC_ARCH_EXYNOS7) {
+		if (exynos7_layout(data)) {
 			val &= ~(EXYNOS7_EMUL_DATA_MASK <<
 				EXYNOS7_EMUL_DATA_SHIFT);
 			val |= (temp_to_code(data, temp) <<
@@ -701,7 +738,7 @@ static void exynos4412_tmu_set_emulation(struct exynos_tmu_data *data,
 		emul_con = EXYNOS5260_EMUL_CON;
 	else if (data->soc == SOC_ARCH_EXYNOS5433)
 		emul_con = EXYNOS5433_TMU_EMUL_CON;
-	else if (data->soc == SOC_ARCH_EXYNOS7)
+	else if (exynos7_layout(data))
 		emul_con = EXYNOS7_TMU_REG_EMUL_CON;
 	else
 		emul_con = EXYNOS_EMUL_CON;
@@ -782,7 +819,7 @@ static void exynos4210_tmu_clear_irqs(struct exynos_tmu_data *data)
 	if (data->soc == SOC_ARCH_EXYNOS5260) {
 		tmu_intstat = EXYNOS5260_TMU_REG_INTSTAT;
 		tmu_intclear = EXYNOS5260_TMU_REG_INTCLEAR;
-	} else if (data->soc == SOC_ARCH_EXYNOS7) {
+	} else if (exynos7_layout(data)) {
 		tmu_intstat = EXYNOS7_TMU_REG_INTPEND;
 		tmu_intclear = EXYNOS7_TMU_REG_INTPEND;
 	} else if (data->soc == SOC_ARCH_EXYNOS5433) {
@@ -833,6 +870,9 @@ static const struct of_device_id exynos_tmu_match[] = {
 	}, {
 		.compatible = "samsung,exynos7-tmu",
 		.data = (const void *)SOC_ARCH_EXYNOS7,
+	}, {
+		.compatible = "samsung,exynos7570-tmu",
+		.data = (const void *)SOC_ARCH_EXYNOS7570,
 	},
 	{ },
 };
@@ -944,6 +984,19 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 		data->efuse_value = 75;
 		data->min_efuse_value = 15;
 		data->max_efuse_value = 100;
+		break;
+	case SOC_ARCH_EXYNOS7570:
+		data->tmu_set_low_temp = exynos7_tmu_set_low_temp;
+		data->tmu_set_high_temp = exynos7_tmu_set_high_temp;
+		data->tmu_disable_low = exynos7_tmu_disable_low;
+		data->tmu_disable_high = exynos7_tmu_disable_high;
+		data->tmu_set_crit_temp = exynos7_tmu_set_crit_temp;
+		data->tmu_initialize = exynos7570_tmu_initialize;
+		data->tmu_control = exynos7570_tmu_control;
+		data->tmu_read = exynos7_tmu_read;
+		data->tmu_set_emulation = exynos4412_tmu_set_emulation;
+		data->tmu_clear_irqs = exynos4210_tmu_clear_irqs;
+		data->efuse_value = 50;	/* downstream default */
 		break;
 	default:
 		dev_err(&pdev->dev, "Platform not supported\n");
@@ -1062,6 +1115,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	switch (data->soc) {
 	case SOC_ARCH_EXYNOS5433:
 	case SOC_ARCH_EXYNOS7:
+	case SOC_ARCH_EXYNOS7570:
 		data->sclk = devm_clk_get(dev, "tmu_sclk");
 		if (IS_ERR(data->sclk)) {
 			ret = dev_err_probe(dev, PTR_ERR(data->sclk), "Failed to get sclk\n");
