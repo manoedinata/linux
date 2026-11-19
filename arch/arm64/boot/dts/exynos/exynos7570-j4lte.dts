@@ -15,7 +15,13 @@
 	chassis-type = "handset";
 
 	chosen {
-		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p18 rootfstype=ext4";
+		/*
+		 * cpufreq.default_governor=userspace: keep the 1378 MHz S-BOOT
+		 * set until userspace picks the governor; the display came up
+		 * misaligned once when schedutil was switching the CPU while
+		 * DECON took over the bootloader picture.
+		 */
+		bootargs = "console=tty0 ignore_loglevel clk_ignore_unused regulator_ignore_unused root=/dev/mmcblk0p18 rootfstype=ext4 cpufreq.default_governor=userspace";
 	};
 
 	/*
