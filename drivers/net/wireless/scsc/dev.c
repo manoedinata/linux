@@ -403,7 +403,8 @@ struct slsi_dev *slsi_dev_attach(struct device *dev, struct scsc_mx *core, struc
 #ifdef CONFIG_SCSC_WLAN_STA_ONLY
 	SLSI_ERR(sdev, "CONFIG_SCSC_WLAN_STA_ONLY: not registering p2p netdev\n");
 #else
-	if (slsi_netif_register(sdev, sdev->netdev[SLSI_NET_INDEX_P2P]) != 0) {
+	if (sdev->netdev[SLSI_NET_INDEX_P2P] &&
+	    slsi_netif_register(sdev, sdev->netdev[SLSI_NET_INDEX_P2P]) != 0) {
 		SLSI_ERR(sdev, "failed to register with p2p netdev\n");
 		goto err_wlan_registered;
 	}

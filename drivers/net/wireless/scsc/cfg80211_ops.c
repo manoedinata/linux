@@ -2040,7 +2040,8 @@ static int slsi_start_ap(struct wiphy *wiphy, struct net_device *dev,
 
 		slsi_p2p_group_start_remove_unsync_vif(sdev);
 		p2p_dev = slsi_get_netdev(sdev, SLSI_NET_INDEX_P2P);
-		SLSI_ETHER_COPY(device_address, p2p_dev->dev_addr);
+		if (p2p_dev)
+			SLSI_ETHER_COPY(device_address, p2p_dev->dev_addr);
 		if (keep_alive_period != SLSI_P2PGO_KEEP_ALIVE_PERIOD_SEC)
 			if (slsi_set_uint_mib(sdev, NULL, SLSI_PSID_UNIFI_MLMEGO_KEEP_ALIVE_TIMEOUT,
 					      keep_alive_period) != 0) {

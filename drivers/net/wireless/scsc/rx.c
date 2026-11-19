@@ -2262,7 +2262,7 @@ void slsi_rx_frame_transmission_ind(struct slsi_dev *sdev, struct net_device *de
 
 				SLSI_NET_DBG2(dev, SLSI_MLME, "Frame Tx was requested with device address - Change ndev_vif for tx_status\n");
 
-				ndev_vif_to_cfg = netdev_priv(ndev);
+				ndev_vif_to_cfg = ndev ? netdev_priv(ndev) : NULL;
 				if (!ndev_vif_to_cfg) {
 					SLSI_NET_ERR(dev, "Getting P2P Index netdev failed\n");
 					ndev_vif_to_cfg = ndev_vif;

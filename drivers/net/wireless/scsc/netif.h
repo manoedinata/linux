@@ -91,6 +91,8 @@ int slsi_ac_to_tids(enum slsi_traffic_q ac, int *tids);
 struct slsi_dev;
 struct slsi_peer;
 
+/* scsc_wlan.p2p: create the p2p0 (Wi-Fi Direct) netdev, off by default */
+extern bool slsi_p2p_netdev;
 int slsi_netif_init(struct slsi_dev *sdev);
 /* returns the index or -E<error> code */
 int slsi_netif_dynamic_iface_add(struct slsi_dev *sdev, const char *name, enum nl80211_iftype type);

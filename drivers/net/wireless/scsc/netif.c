@@ -1303,6 +1303,16 @@ int slsi_netif_dynamic_iface_add(struct slsi_dev *sdev, const char *name, enum n
 
 static void slsi_netif_remove_locked(struct slsi_dev *sdev, struct net_device *dev, bool wiphy_locked);
 
+/*
+ * Android's Wi-Fi Direct interface. A Linux system has no use for a second
+ * always-present WiFi netdev (NetworkManager and wpa_supplicant list it as
+ * another device), so it is only created on request; client and AP mode run
+ * on wlan0 either way.
+ */
+bool slsi_p2p_netdev;
+module_param_named(p2p, slsi_p2p_netdev, bool, 0444);
+MODULE_PARM_DESC(p2p, "Create the p2p0 Wi-Fi Direct interface");
+
 int slsi_netif_init(struct slsi_dev *sdev)
 {
 	int i;
@@ -1320,7 +1330,7 @@ int slsi_netif_init(struct slsi_dev *sdev)
 		return -EINVAL;
 	}
 
-	if (slsi_netif_add_locked(sdev, "p2p%d", SLSI_NET_INDEX_P2P) != 0) {
+	if (slsi_p2p_netdev && slsi_netif_add_locked(sdev, "p2p%d", SLSI_NET_INDEX_P2P) != 0) {
 		rtnl_lock();
 		slsi_netif_remove_locked(sdev, sdev->netdev[SLSI_NET_INDEX_WLAN], false);
 		rtnl_unlock();
@@ -1409,7 +1419,11 @@ int slsi_netif_register(struct slsi_dev *sdev, struct net_device *dev)
 static void slsi_netif_remove_locked(struct slsi_dev *sdev, struct net_device *dev, bool wiphy_locked)
 {
 	int               i;
-	struct netdev_vif *ndev_vif = netdev_priv(dev);
+	struct netdev_vif *ndev_vif;
+
+	if (!dev)	/* e.g. p2p0 when scsc_wlan.p2p=0 */
+		return;
+	ndev_vif = netdev_priv(dev);
 
 	SLSI_NET_DBG1(dev, SLSI_NETDEV, "Unregister:%pM\n", dev->dev_addr);
 
