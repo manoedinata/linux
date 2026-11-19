@@ -131,11 +131,13 @@ int slsi_check_rf_test_mode(void)
 	/* reading power value from /data/vendor/conn/.psm.info */
 	fp = filp_open(filepath, O_RDONLY, 0);
 	if (IS_ERR(fp) || (fp == NULL)) {
-		pr_err("%s is not exist.\n", filepath);
+		if (scsc_log_verbose)	/* no Android /data: expected */
+			pr_err("%s is not exist.\n", filepath);
 		/* reading power value from /data/vendor/wifi/rftest.info */
 		fp = filp_open(file_path, O_RDONLY, 0);
 		if(IS_ERR(fp) || (!fp)) {
-			pr_err("%s is not exist.\n", file_path);
+			if (scsc_log_verbose)	/* no Android /data: expected */
+				pr_err("%s is not exist.\n", file_path);
 			return -ENOENT; /* -2 */
 		}
 	}
@@ -147,7 +149,8 @@ int slsi_check_rf_test_mode(void)
 		pr_err("*#rf# is enabled.\n");
 		EnableRfTestMode = 1;
 	} else {
-		pr_err("*#rf# is disabled.\n");
+		if (scsc_log_verbose)
+			pr_err("*#rf# is disabled.\n");
 		EnableRfTestMode = 0;
 	}
 
