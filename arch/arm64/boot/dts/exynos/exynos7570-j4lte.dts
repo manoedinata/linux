@@ -184,41 +184,22 @@
 	};
 
 	/*
-	 * Overclock levels: the ECT PLL table goes up to 2002 MHz, but Samsung
-	 * disables these levels for the chip and has no tested voltages for
-	 * them. Boost levels (off by default, and schedutil never uses boost
-	 * levels on arm64) at the 1430 MHz voltage: the voltage for a test is
-	 * raised from outside cpufreq (BUCK1 takes the highest request).
+	 * Overclock levels (Samsung disables everything above 1430 MHz for the
+	 * chip). Tested on this J4 with 30 s of sha256 on all four cores:
+	 * 1586 MHz down to 950 mV, 1690 MHz at 1100 mV (only voltage tried),
+	 * 1794 MHz at 1100 mV passed, 1924 MHz crashed at 1100 mV. Userspace
+	 * caps the CPUs at 1430 MHz (scaling_max_freq) unless asked for more.
 	 */
 	opp-1586000000 {
 		opp-hz = /bits/ 64 <1586000000>;
-		opp-microvolt = <950000 950000 1100000>;
+		opp-microvolt = <1000000 1000000 1100000>;
 		clock-latency-ns = <100000>;
-		turbo-mode;
 	};
+
 	opp-1690000000 {
 		opp-hz = /bits/ 64 <1690000000>;
-		opp-microvolt = <950000 950000 1100000>;
+		opp-microvolt = <1100000 1100000 1100000>;
 		clock-latency-ns = <100000>;
-		turbo-mode;
-	};
-	opp-1794000000 {
-		opp-hz = /bits/ 64 <1794000000>;
-		opp-microvolt = <950000 950000 1100000>;
-		clock-latency-ns = <100000>;
-		turbo-mode;
-	};
-	opp-1924000000 {
-		opp-hz = /bits/ 64 <1924000000>;
-		opp-microvolt = <950000 950000 1100000>;
-		clock-latency-ns = <100000>;
-		turbo-mode;
-	};
-	opp-2002000000 {
-		opp-hz = /bits/ 64 <2002000000>;
-		opp-microvolt = <950000 950000 1100000>;
-		clock-latency-ns = <100000>;
-		turbo-mode;
 	};
 };
 
