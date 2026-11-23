@@ -151,6 +151,27 @@
 			wakeup-source;
 		};
 	};
+
+	/* TC305K touch keys on a bit-banged bus (gpc4-0 SDA, gpc4-1 SCL) */
+	i2c-touchkey {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpc4 0 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&gpc4 1 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <5>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		touchkey@20 {
+			compatible = "coreriver,tc305k-touchkey";
+			reg = <0x20>;
+			interrupt-parent = <&gpa0>;
+			interrupts = <2 IRQ_TYPE_EDGE_FALLING>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&tkey_irq>;
+			vcc-supply = <&ldo19_reg>;
+			linux,keycodes = <KEY_APPSELECT KEY_BACK>;
+		};
+	};
 };
 
 &cpu0 {
@@ -885,6 +906,12 @@
 		samsung,pins = "gpa0-4";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
+
+	tkey_irq: tkey-irq-pins {
+		samsung,pins = "gpa0-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 	};
 
 	/* a line handed to the CP (downstream exynos7570-pinctrl.dtsi) */
