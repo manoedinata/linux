@@ -91,6 +91,19 @@ static struct ktd2692_context *fled_cdev_to_led(
 	return container_of(fled_cdev, struct ktd2692_context, fled_cdev);
 }
 
+/*
+ * The bits are told apart by microsecond pulse widths: an interrupt in
+ * the middle of one stretches it and the chip reads a wrong value.
+ */
+static void ktd2692_write(struct ktd2692_context *led, u8 val)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	expresswire_write_u8(&led->props, val);
+	local_irq_restore(flags);
+}
+
 static int ktd2692_led_brightness_set(struct led_classdev *led_cdev,
 				       enum led_brightness brightness)
 {
@@ -103,12 +116,12 @@ static int ktd2692_led_brightness_set(struct led_classdev *led_cdev,
 		led->mode = KTD2692_MODE_DISABLE;
 		gpiod_direction_output(led->aux_gpio, 0);
 	} else {
-		expresswire_write_u8(&led->props, brightness |
+		ktd2692_write(led, brightness |
 					KTD2692_REG_MOVIE_CURRENT_BASE);
 		led->mode = KTD2692_MODE_MOVIE;
 	}
 
-	expresswire_write_u8(&led->props, led->mode | KTD2692_REG_MODE_BASE);
+	ktd2692_write(led, led->mode | KTD2692_REG_MODE_BASE);
 	mutex_unlock(&led->lock);
 
 	return 0;
@@ -125,7 +138,7 @@ static int ktd2692_led_flash_strobe_set(struct led_classdev_flash *fled_cdev,
 
 	if (state) {
 		flash_tm_reg = GET_TIMEOUT_OFFSET(timeout->val, timeout->step);
-		expresswire_write_u8(&led->props, flash_tm_reg
+		ktd2692_write(led, flash_tm_reg
 				| KTD2692_REG_FLASH_TIMEOUT_BASE);
 
 		led->mode = KTD2692_MODE_FLASH;
@@ -135,7 +148,7 @@ static int ktd2692_led_flash_strobe_set(struct led_classdev_flash *fled_cdev,
 		gpiod_direction_output(led->aux_gpio, 0);
 	}
 
-	expresswire_write_u8(&led->props, led->mode | KTD2692_REG_MODE_BASE);
+	ktd2692_write(led, led->mode | KTD2692_REG_MODE_BASE);
 
 	fled_cdev->led_cdev.brightness = LED_OFF;
 	led->mode = KTD2692_MODE_DISABLE;
@@ -188,9 +201,9 @@ static void ktd2692_setup(struct ktd2692_context *led)
 	expresswire_power_off(&led->props);
 	gpiod_direction_output(led->aux_gpio, 0);
 
-	expresswire_write_u8(&led->props, (KTD2692_MM_MIN_CURR_THRESHOLD_SCALE - 1)
+	ktd2692_write(led, (KTD2692_MM_MIN_CURR_THRESHOLD_SCALE - 1)
 				 | KTD2692_REG_MM_MIN_CURR_THRESHOLD_BASE);
-	expresswire_write_u8(&led->props, KTD2692_FLASH_MODE_CURR_PERCENT(45)
+	ktd2692_write(led, KTD2692_FLASH_MODE_CURR_PERCENT(45)
 				 | KTD2692_REG_FLASH_CURRENT_BASE);
 }
 
