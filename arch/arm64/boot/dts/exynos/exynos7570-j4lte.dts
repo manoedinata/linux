@@ -169,6 +169,8 @@
 		pinctrl-0 = <&flash_ctrl>;
 
 		led {
+			/* the driver names the LED only from label or node name */
+			label = "white:flash";
 			function = LED_FUNCTION_FLASH;
 			color = <LED_COLOR_ID_WHITE>;
 			led-max-microamp = <300000>;
