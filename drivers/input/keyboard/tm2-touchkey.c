@@ -40,6 +40,8 @@ struct touchkey_variant {
 	u8 cmd_led_off;
 	bool no_reg;
 	bool fixed_regulator;
+	bool keymap_bits;	/* key i: press bit i, release bit i + 4 */
+	bool no_led;
 };
 
 struct tm2_touchkey_data {
@@ -80,6 +82,18 @@ static const struct touchkey_variant tc360_touchkey_variant = {
 	.fixed_regulator = true,
 	.cmd_led_on = TM2_TOUCHKEY_CMD_LED_ON,
 	.cmd_led_off = TM2_TOUCHKEY_CMD_LED_OFF,
+};
+
+/*
+ * Coreriver TC305K (Galaxy J4) in its bitmap mode: register 0 holds a press
+ * bit (0..3) and a release bit (4..7) for each key.
+ */
+static const struct touchkey_variant tc305k_touchkey_variant = {
+	.keycode_reg = 0x00,
+	.base_reg = 0x00,
+	.fixed_regulator = true,
+	.keymap_bits = true,
+	.no_led = true,
 };
 
 static int tm2_touchkey_led_brightness_set(struct led_classdev *led_dev,
@@ -148,6 +162,19 @@ static irqreturn_t tm2_touchkey_irq_handler(int irq, void *devid)
 		goto out;
 	}
 
+	if (touchkey->variant->keymap_bits) {
+		for (i = 0; i < touchkey->num_keycodes; i++) {
+			if (data & BIT(i + 4))
+				input_report_key(touchkey->input_dev,
+						 touchkey->keycodes[i], 0);
+			else if (data & BIT(i))
+				input_report_key(touchkey->input_dev,
+						 touchkey->keycodes[i], 1);
+		}
+		input_sync(touchkey->input_dev);
+		goto out;
+	}
+
 	index = (data & TM2_TOUCHKEY_BIT_KEYCODE) - 1;
 	if (index < 0 || index >= touchkey->num_keycodes) {
 		dev_warn(&touchkey->client->dev,
@@ -169,7 +196,7 @@ static irqreturn_t tm2_touchkey_irq_handler(int irq, void *devid)
 	input_sync(touchkey->input_dev);
 
 out:
-	if (touchkey->variant->fixed_regulator &&
+	if (touchkey->variant->fixed_regulator && !touchkey->variant->no_led &&
 				data & TM2_TOUCHKEY_BIT_PRESS_EV) {
 		/* touch turns backlight on, so make sure we're in sync */
 		if (touchkey->led_dev.brightness == LED_OFF)
@@ -276,6 +303,9 @@ static int tm2_touchkey_probe(struct i2c_client *client)
 		return error;
 	}
 
+	if (touchkey->variant->no_led)
+		return 0;
+
 	/* led device */
 	touchkey->led_dev.name = TM2_TOUCHKEY_DEV_NAME;
 	touchkey->led_dev.brightness = LED_ON;
@@ -341,6 +371,9 @@ static const struct of_device_id tm2_touchkey_of_match[] = {
 	}, {
 		.compatible = "cypress,aries-touchkey",
 		.data = &aries_touchkey_variant,
+	}, {
+		.compatible = "coreriver,tc305k-touchkey",
+		.data = &tc305k_touchkey_variant,
 	}, {
 		.compatible = "coreriver,tc360-touchkey",
 		.data = &tc360_touchkey_variant,
