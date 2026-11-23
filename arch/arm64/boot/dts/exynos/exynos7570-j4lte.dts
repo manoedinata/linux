@@ -8,6 +8,7 @@
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
 #include "exynos7570.dtsi"
 
 / {
@@ -149,6 +150,22 @@
 			gpios = <&gpa0 4 GPIO_ACTIVE_LOW>;
 			debounce-interval = <16>;
 			wakeup-source;
+		};
+	};
+
+	/* KTD2692 flash LED on a one-wire (ExpressWire) line, gpf3-3 */
+	led-controller {
+		compatible = "kinetic,ktd2692";
+		ctrl-gpios = <&gpf3 3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&flash_ctrl>;
+
+		led {
+			function = LED_FUNCTION_FLASH;
+			color = <LED_COLOR_ID_WHITE>;
+			led-max-microamp = <300000>;
+			flash-max-microamp = <1500000>;
+			flash-max-timeout-us = <1049000>;
 		};
 	};
 
@@ -951,5 +968,13 @@
 		samsung,pins = "gpa2-6";
 		samsung,pin-function = <4>;
 		samsung,pin-pud = <0>;
+	};
+};
+
+&pinctrl_top {
+	flash_ctrl: flash-ctrl-pins {
+		samsung,pins = "gpf3-3";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 	};
 };
