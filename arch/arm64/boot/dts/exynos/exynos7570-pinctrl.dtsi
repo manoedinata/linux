@@ -254,6 +254,12 @@
 		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
 	};
+
+	i2c_sensor1_bus: i2c-sensor1-bus-pins {
+		samsung,pins = "gpc4-3", "gpc4-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
 };
 
 &pinctrl_touch {
