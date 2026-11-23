@@ -80,6 +80,14 @@
 			no-map;
 		};
 
+		/*
+		 * ECT, the DVFS/ASV parameter table S-BOOT leaves in RAM
+		 * (downstream "ect" node, memblock_reserve()d at boot).
+		 */
+		ect@7e0fa000 {
+			reg = <0x0 0x7e0fa000 0x6000>;
+		};
+
 		framebuffer@67000000 {
 			reg = <0x0 0x67000000 (720 * 1280 * 4)>;
 			no-map;
