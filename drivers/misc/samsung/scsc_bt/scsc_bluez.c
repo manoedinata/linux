@@ -149,8 +149,6 @@ static int slsi_bt_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 
 	ret = bt_fs->write(NULL, skb->data, skb->len, NULL);
 	if (ret >= 0) {
-		kfree_skb(skb);
-
 		/* Update HCI stat counters */
 		hdev->stat.byte_tx += skb->len;
 
@@ -167,6 +165,7 @@ static int slsi_bt_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 				hdev->stat.sco_tx++;
 				break;
 		}
+		kfree_skb(skb);
 	}
 
 	return ret;
