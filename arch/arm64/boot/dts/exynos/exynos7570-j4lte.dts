@@ -152,6 +152,13 @@
 		};
 	};
 
+	vibrator {
+		compatible = "regulator-haptic";
+		haptic-supply = <&ldo16_reg>;
+		min-microvolt = <3100000>;
+		max-microvolt = <3100000>;
+	};
+
 	/* TC305K touch keys on a bit-banged bus (gpc4-0 SDA, gpc4-1 SCL) */
 	i2c-touchkey {
 		compatible = "i2c-gpio";
