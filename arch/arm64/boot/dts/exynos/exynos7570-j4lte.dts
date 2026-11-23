@@ -587,6 +587,19 @@
 	};
 };
 
+&i2c_sensor1 {
+	status = "okay";
+
+	accelerometer@1d {
+		compatible = "st,lis2ds12";
+		reg = <0x1d>;
+		/* measured: face up reads z -1 g, portrait upright y +1 g */
+		mount-matrix = "-1", "0", "0",
+			       "0", "1", "0",
+			       "0", "0", "-1";
+	};
+};
+
 &i2c_muic {
 	status = "okay";
 
