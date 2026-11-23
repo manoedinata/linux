@@ -588,11 +588,17 @@
 };
 
 &i2c_sensor1 {
+	samsung,i2c-max-bus-freq = <400000>;
 	status = "okay";
 
 	accelerometer@1d {
 		compatible = "st,lis2ds12";
 		reg = <0x1d>;
+		interrupt-parent = <&gpa2>;
+		interrupts = <2 IRQ_TYPE_LEVEL_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&accel_irq>;
+		st,drdy-int-pin = <1>;
 		/* measured: face up reads z -1 g, portrait upright y +1 g */
 		mount-matrix = "-1", "0", "0",
 			       "0", "1", "0",
@@ -926,6 +932,12 @@
 		samsung,pins = "gpa0-4";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
+
+	accel_irq: accel-irq-pins {
+		samsung,pins = "gpa2-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 	};
 
 	tkey_irq: tkey-irq-pins {
