@@ -1019,10 +1019,6 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.mask = 0xf0,
 			.value_off = ST_SENSORS_DEFAULT_POWER_OFF_VALUE,
 		},
-		.enable_axis = {
-			.addr = ST_SENSORS_DEFAULT_AXIS_ADDR,
-			.mask = ST_SENSORS_DEFAULT_AXIS_MASK,
-		},
 		.fs = {
 			.addr = 0x20,
 			.mask = 0x0c,
