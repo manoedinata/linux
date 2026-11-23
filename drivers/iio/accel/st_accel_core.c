@@ -1006,12 +1006,12 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.addr = 0x20,
 			.mask = 0xf0,
 			.odr_avl = {
-				{ .hz = 10, .value = 0x01, },
-				{ .hz = 50, .value = 0x02, },
-				{ .hz = 100, .value = 0x03, },
-				{ .hz = 200, .value = 0x04, },
-				{ .hz = 400, .value = 0x05, },
-				{ .hz = 800, .value = 0x06, },
+				{ .hz = 25, .value = 0x02, },
+				{ .hz = 50, .value = 0x03, },
+				{ .hz = 100, .value = 0x04, },
+				{ .hz = 200, .value = 0x05, },
+				{ .hz = 400, .value = 0x06, },
+				{ .hz = 800, .value = 0x07, },
 			},
 		},
 		.pw = {
