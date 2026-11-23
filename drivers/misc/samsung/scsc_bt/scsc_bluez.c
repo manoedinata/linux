@@ -26,6 +26,7 @@
 #include <linux/skbuff.h>
 #include <linux/rfkill.h>
 #include <linux/platform_device.h>
+#include <linux/namei.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -39,7 +40,7 @@ static struct hci_dev      		*hdev;
 static struct device 			*dev_ref;
 static const struct file_operations 	*bt_fs;
 static struct workqueue_struct          *wq;
-static struct work_struct		open_worker;
+static struct delayed_work		open_worker;
 static struct work_struct		close_worker;
 static struct work_struct		read_work;
 static u8				receive_buffer[1024];
@@ -171,9 +172,40 @@ static int slsi_bt_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 	return ret;
 }
 
+/*
+ * hci_register_dev() powers the controller on at once, which starts the
+ * WLBT firmware from the firmware directory. When that is not there yet
+ * (early boot: /vendor not mounted, the directory a dangling symlink) the
+ * first power on fails and hci0 is never announced to userspace. Wait
+ * for the directory, up to 30 seconds.
+ */
+#define SLSI_BT_FW_WAIT_TRIES	30
+
+static bool slsi_bt_fw_dir_ready(void)
+{
+#ifdef CONFIG_SCSC_CORE_FW_LOCATION
+	struct path path;
+
+	if (kern_path(CONFIG_SCSC_CORE_FW_LOCATION, LOOKUP_FOLLOW, &path))
+		return false;
+	path_put(&path);
+#endif
+	return true;
+}
+
 static void slsi_bt_open_worker(struct work_struct *work)
 {
+	static int fw_wait_tries;
 	int err;
+
+	if (!hdev && !slsi_bt_fw_dir_ready()) {
+		if (++fw_wait_tries <= SLSI_BT_FW_WAIT_TRIES) {
+			schedule_delayed_work(&open_worker, HZ);
+			return;
+		}
+		SCSC_TAG_ERR(BT_COMMON, "firmware directory not found, registering anyway\n");
+	}
+	fw_wait_tries = 0;
 
 	if (!hdev) {
 		hdev = hci_alloc_dev();
@@ -220,6 +252,13 @@ void slsi_bt_notify_probe(struct device *dev,
 	dev_ref         = dev;
 
 	SCSC_TAG_INFO(BT_COMMON, "SLSI BT BlueZ probe\n");
+
+	/*
+	 * rfkill_register() may have applied the unblocked state before
+	 * the service probed (dev_ref was NULL then): register hci0 now.
+	 */
+	if (btz_rfkill && !rfkill_blocked(btz_rfkill))
+		schedule_delayed_work(&open_worker, 0);
 }
 
 void slsi_bt_notify_remove(void)
@@ -238,10 +277,9 @@ static int slsi_bt_power_control_set_param_cb(const char *buffer,
 	ret = kstrtou32(buffer, 0, &value);
 	if (!ret) {
 		if (value && dev_ref) {
-			INIT_WORK(&open_worker, slsi_bt_open_worker);
-			schedule_work(&open_worker);
+			schedule_delayed_work(&open_worker, 0);
 		} else if (0 == value) {
-			INIT_WORK(&close_worker, slsi_bt_close_worker);
+			cancel_delayed_work(&open_worker);
 			schedule_work(&close_worker);
 		}
 	}
@@ -267,10 +305,9 @@ MODULE_PARM_DESC(power_control,
 static int btz_rfkill_set(void *data, bool blocked)
 {
 	if (!blocked && dev_ref) {
-		INIT_WORK(&open_worker, slsi_bt_open_worker);
-		schedule_work(&open_worker);
+		schedule_delayed_work(&open_worker, 0);
 	} else if (blocked) {
-		INIT_WORK(&close_worker, slsi_bt_close_worker);
+		cancel_delayed_work(&open_worker);
 		schedule_work(&close_worker);
 	}
 
@@ -284,6 +321,9 @@ static const struct rfkill_ops btz_rfkill_ops = {
 static int __init slsi_bluez_init(void)
 {
 	int ret;
+
+	INIT_DELAYED_WORK(&open_worker, slsi_bt_open_worker);
+	INIT_WORK(&close_worker, slsi_bt_close_worker);
 
 	slsi_btz_pdev = platform_device_alloc("scsc-bluez", -1);
 	if (!slsi_btz_pdev) {
@@ -301,7 +341,8 @@ static int __init slsi_bluez_init(void)
 		goto err_btz_rfkill_alloc;
 	}
 
-	rfkill_init_sw_state(btz_rfkill, 1);
+	/* Unblocked by default, like other Bluetooth drivers */
+	rfkill_init_sw_state(btz_rfkill, false);
 
 	ret = rfkill_register(btz_rfkill);
 	if (ret) {
@@ -324,6 +365,7 @@ err_slsi_btz_pdev:
 
 static void __exit slsi_bluez_exit(void)
 {
+	cancel_delayed_work_sync(&open_worker);
 	platform_device_unregister(slsi_btz_pdev);
 	rfkill_unregister(btz_rfkill);
 	rfkill_destroy(btz_rfkill);
