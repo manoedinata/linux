@@ -55,7 +55,8 @@
 
 #define SCSC_BT_CONF      "bt.hcf"
 #ifdef CONFIG_SCSC_BT_BLUEZ
-#define SCSC_BT_ADDR      "/csa/bluetooth/.bd_addr"
+/* Samsung keeps the address in EFS as "XX:XX:XX:XX:XX:XX" */
+#define SCSC_BT_ADDR      "/efs/bluetooth/bt_addr"
 #define SCSC_BT_ADDR_LEN  (3)
 #endif
 

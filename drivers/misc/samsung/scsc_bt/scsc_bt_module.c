@@ -489,9 +489,15 @@ static int slsi_sm_bt_service_start(void)
 		SCSC_TAG_DEBUG(BT_COMMON, "Bluetooth address not found\n");
 	} else if (firm && firm->size) {
 		u32 u[SCSC_BT_ADDR_LEN];
+		u32 b[6];
 
 		/* Convert the data into a native format */
-		if (sscanf(firm->data, "%04x %02X %06x",
+		if (sscanf(firm->data, "%02x:%02x:%02x:%02x:%02x:%02x",
+			   &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6) {
+			bhcs->bluetooth_address_nap = b[0] << 8 | b[1];
+			bhcs->bluetooth_address_uap = b[2];
+			bhcs->bluetooth_address_lap = b[3] << 16 | b[4] << 8 | b[5];
+		} else if (sscanf(firm->data, "%04x %02X %06x",
 			   &u[0], &u[1], &u[2])
 		    == SCSC_BT_ADDR_LEN) {
 			bhcs->bluetooth_address_lap = u[2];
