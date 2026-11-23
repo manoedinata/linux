@@ -7,6 +7,7 @@
 
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include "exynos7570.dtsi"
 
 / {
@@ -121,6 +122,34 @@
 		device-chemistry = "lithium-ion";
 		voltage-max-design-microvolt = <4350000>;
 		charge-full-design-microamp-hours = <3000000>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_volup &key_voldown &key_home>;
+
+		key-volup {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpa0 7 GPIO_ACTIVE_LOW>;
+			debounce-interval = <16>;
+		};
+
+		key-voldown {
+			label = "Volume Down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpa2 3 GPIO_ACTIVE_LOW>;
+			debounce-interval = <16>;
+		};
+
+		key-home {
+			label = "Home";
+			linux,code = <KEY_HOMEPAGE>;
+			gpios = <&gpa0 4 GPIO_ACTIVE_LOW>;
+			debounce-interval = <16>;
+			wakeup-source;
+		};
 	};
 };
 
@@ -840,6 +869,24 @@
 };
 
 &pinctrl_alive {
+	key_volup: key-volup-pins {
+		samsung,pins = "gpa0-7";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
+
+	key_voldown: key-voldown-pins {
+		samsung,pins = "gpa2-3";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
+
+	key_home: key-home-pins {
+		samsung,pins = "gpa0-4";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+	};
+
 	/* a line handed to the CP (downstream exynos7570-pinctrl.dtsi) */
 	cp_gpio_j4lte: cp-gpio-j4lte-pins {
 		samsung,pins = "gpa2-6";
