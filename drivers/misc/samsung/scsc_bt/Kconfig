@@ -1,0 +1,10 @@
+config SCSC_BT
+	tristate "SCSC MX BT support"
+	depends on SCSC_CORE && BT
+
+config SCSC_BT_BLUEZ
+	bool "SCSC MX BlueZ support"
+	depends on SCSC_BT && RFKILL
+	help
+	  Register the WLBT Bluetooth function as a BlueZ HCI device
+	  (H4 over the shared memory link), switched by rfkill.
