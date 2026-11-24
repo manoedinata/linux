@@ -48,6 +48,20 @@
 			};
 		};
 
+		idle-states {
+			entry-method = "psci";
+
+			/* core power-down, values from the downstream DT */
+			cpu_sleep: cpu-sleep {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x0010000>;
+				local-timer-stop;
+				entry-latency-us = <35>;
+				exit-latency-us = <90>;
+				min-residency-us = <750>;
+			};
+		};
+
 		cpu0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
@@ -56,6 +70,7 @@
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
 			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
+			cpu-idle-states = <&cpu_sleep>;
 		};
 
 		cpu1: cpu@1 {
@@ -66,6 +81,7 @@
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
 			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
+			cpu-idle-states = <&cpu_sleep>;
 		};
 
 		cpu2: cpu@2 {
@@ -76,6 +92,7 @@
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
 			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
+			cpu-idle-states = <&cpu_sleep>;
 		};
 
 		cpu3: cpu@3 {
@@ -86,6 +103,7 @@
 			clocks = <&cmu_cpucl0 CLK_CPUCL0_CPU>;
 			#cooling-cells = <2>;
 			operating-points-v2 = <&cpu_opp_table>;
+			cpu-idle-states = <&cpu_sleep>;
 		};
 	};
 
@@ -239,6 +257,23 @@
 			compatible = "samsung,exynos7570-chipid",
 				     "samsung,exynos4210-chipid";
 			reg = <0x10100000 0x100>;
+		};
+
+		/* broadcast tick for cores powered down in idle (arch timer stops) */
+		timer@101b0000 {
+			compatible = "samsung,exynos7570-mct",
+				     "samsung,exynos4210-mct";
+			reg = <0x101b0000 0x800>;
+			interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&oscclk>, <&cmu_peri CLK_GOUT_PERI_MCT_PCLK>;
+			clock-names = "fin_pll", "mct";
 		};
 
 		cmu_peri: clock-controller@101f0000 {
