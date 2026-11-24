@@ -7,6 +7,7 @@
 
 #include <linux/array_size.h>
 #include <linux/arm-smccc.h>
+#include <linux/cpu_pm.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/mfd/core.h>
@@ -15,6 +16,9 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/regmap.h>
+#include <linux/smp.h>
+
+#include <asm/smp_plat.h>
 
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 #include <linux/soc/samsung/exynos-pmu.h>
@@ -226,6 +230,92 @@ static const struct exynos_pmu_data gs101_pmu_data = {
 };
 
 /*
+ * Exynos7570: before a core is powered down in idle (PSCI CPU_SUSPEND with a
+ * power-down state), the kernel clears the core's LOCAL_PWR_CFG in
+ * CPUCL0_CPUn_CONFIGURATION so that the PMU powers it off when it enters WFI
+ * in EL3; it is set again when the core comes back or the attempt fails.
+ * This is what Samsung's downstream cpuidle does (pmucal_cpu_exynos7570.h).
+ * CPU hotplug goes through PSCI CPU_OFF/CPU_ON, which EL3 handles itself.
+ */
+#define EXYNOS7570_CPU_CONFIGURATION(n)	(0x2000 + 0x80 * (n))
+#define EXYNOS7570_LOCAL_PWR_CFG		GENMASK(3, 0)
+
+static void exynos7570_cpu_set_power(bool on)
+{
+	unsigned int core = MPIDR_AFFINITY_LEVEL(cpu_logical_map(smp_processor_id()), 0);
+	void __iomem *reg = pmu_base_addr + EXYNOS7570_CPU_CONFIGURATION(core);
+	u32 val = readl_relaxed(reg) & ~EXYNOS7570_LOCAL_PWR_CFG;
+
+	if (on)
+		val |= EXYNOS7570_LOCAL_PWR_CFG;
+	writel(val, reg);
+}
+
+static int exynos7570_cpu_pm_notify(struct notifier_block *nb,
+				    unsigned long action, void *data)
+{
+	switch (action) {
+	case CPU_PM_ENTER:
+		exynos7570_cpu_set_power(false);
+		break;
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		exynos7570_cpu_set_power(true);
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos7570_cpu_pm_nb = {
+	.notifier_call = exynos7570_cpu_pm_notify,
+};
+
+/*
+ * CPU power sequencer setup from the downstream lpm_init sequence
+ * (pmucal_system_exynos7570.h). S-BOOT leaves e.g. CPU0_OPTION bit 28 clear
+ * and the durations at their maximum; without these, cores powered down in
+ * idle stop being woken by their interrupts within seconds.
+ */
+static const struct {
+	u16 offset;
+	u32 mask;
+	u32 val;
+} exynos7570_cpu_pwr_init[] = {
+	{ 0x2608, BIT(17), 0 },			/* CPUCL0_L2_OPTION */
+	{ 0x2008, BIT(12) | BIT(28) | GENMASK(1, 0), BIT(28) | 1 },	/* CPUn_OPTION */
+	{ 0x2088, BIT(12) | BIT(28) | GENMASK(1, 0), BIT(28) | 1 },
+	{ 0x2108, BIT(12) | BIT(28) | GENMASK(1, 0), BIT(28) | 1 },
+	{ 0x2188, BIT(12) | BIT(28) | GENMASK(1, 0), BIT(28) | 1 },
+	{ 0x2010, GENMASK(15, 0) | GENMASK(23, 20), 0x3030 | GENMASK(23, 20) },	/* CPUn_DURATION0 */
+	{ 0x2090, GENMASK(15, 0) | GENMASK(23, 20), 0x3030 | GENMASK(23, 20) },
+	{ 0x2110, GENMASK(15, 0) | GENMASK(23, 20), 0x3030 | GENMASK(23, 20) },
+	{ 0x2190, GENMASK(15, 0) | GENMASK(23, 20), 0x3030 | GENMASK(23, 20) },
+	{ 0x2408, GENMASK(1, 0), 1 },		/* CPUCL0_NONCPU_OPTION */
+	{ 0x2410, GENMASK(11, 0), 0x030 },	/* CPUCL0_NONCPU_DURATION0 */
+	{ 0x0208, GENMASK(27, 24), 0 },		/* CENTRAL_SEQ_OPTION */
+	{ 0x2608, BIT(16), BIT(16) },		/* CPUCL0_L2_OPTION */
+	{ 0x0120, BIT(0), BIT(0) },		/* UP_SCHEDULER */
+};
+
+static void exynos7570_pmu_init(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(exynos7570_cpu_pwr_init); i++) {
+		void __iomem *reg = pmu_base_addr + exynos7570_cpu_pwr_init[i].offset;
+		u32 val = readl_relaxed(reg) & ~exynos7570_cpu_pwr_init[i].mask;
+
+		writel(val | exynos7570_cpu_pwr_init[i].val, reg);
+	}
+
+	cpu_pm_register_notifier(&exynos7570_cpu_pm_nb);
+}
+
+static const struct exynos_pmu_data exynos7570_pmu_data = {
+	.pmu_init = exynos7570_pmu_init,
+};
+
+/*
  * PMU platform driver and devicetree bindings.
  */
 static const struct of_device_id exynos_pmu_of_device_ids[] = {
@@ -256,6 +346,9 @@ static const struct of_device_id exynos_pmu_of_device_ids[] = {
 		.compatible = "samsung,exynos5433-pmu",
 	}, {
 		.compatible = "samsung,exynos7-pmu",
+	}, {
+		.compatible = "samsung,exynos7570-pmu",
+		.data = &exynos7570_pmu_data,
 	}, {
 		.compatible = "samsung,exynos850-pmu",
 	},
