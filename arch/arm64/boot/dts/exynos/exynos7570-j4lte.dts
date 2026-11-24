@@ -419,6 +419,19 @@
 			0xcd 0x7f 0x0a 0x00 0x00
 		>;
 
+		/* rear camera flash: torch over SPEEDY, flash fired by gpa0-0 */
+		flash-led {
+			compatible = "samsung,s2mpu06-fled";
+			flash-gpios = <&gpa0 0 GPIO_ACTIVE_HIGH>;
+			label = "white:flash-rear";
+			function = LED_FUNCTION_FLASH;
+			color = <LED_COLOR_ID_WHITE>;
+			/* downstream: torch up to 140 mA, movie 160 mA, flash 600 mA, 1 s */
+			led-max-microamp = <160000>;
+			flash-max-microamp = <600000>;
+			flash-max-timeout-us = <1000000>;
+		};
+
 		regulators {
 			buck1_reg: BUCK1 {
 				regulator-name = "BUCK1";
