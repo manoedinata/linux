@@ -644,6 +644,17 @@
 			       "0", "1", "0",
 			       "0", "0", "-1";
 	};
+
+	proximity@39 {
+		compatible = "sharp,gp2ap070s";
+		reg = <0x39>;
+		interrupt-parent = <&gpa1>;
+		interrupts = <0 IRQ_TYPE_EDGE_BOTH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&prox_irq>;
+		vdd-supply = <&ldo22_reg>;
+		proximity-near-level = <110>;
+	};
 };
 
 &i2c_muic {
@@ -976,6 +987,12 @@
 
 	accel_irq: accel-irq-pins {
 		samsung,pins = "gpa2-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	prox_irq: prox-irq-pins {
+		samsung,pins = "gpa1-0";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 	};
