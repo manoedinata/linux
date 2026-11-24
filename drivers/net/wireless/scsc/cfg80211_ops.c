@@ -1410,12 +1410,17 @@ static int slsi_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
 	SLSI_NET_DBG3(dev, SLSI_CFG80211, "enabled:%d, vif_type:%d, vif_index:%d\n", enabled, ndev_vif->vif_type,
 		      ndev_vif->ifnum);
 
-	if ((ndev_vif->activated) && (ndev_vif->vif_type == FAPI_VIFTYPE_STATION)) {
-		ndev_vif->set_power_mode = pwr_mode;
+	/*
+	 * Keep the request even before the station is up (NetworkManager sets
+	 * power save before connecting): the connect path applies set_power_mode
+	 * once the keys are in. Dropping it left the firmware in active mode while
+	 * cfg80211 reported power save on.
+	 */
+	ndev_vif->set_power_mode = pwr_mode;
+	if ((ndev_vif->activated) && (ndev_vif->vif_type == FAPI_VIFTYPE_STATION))
 		r = slsi_mlme_powermgt(sdev, dev, pwr_mode);
-	} else {
+	else
 		r = 0;
-	}
 
 	SLSI_MUTEX_UNLOCK(ndev_vif->vif_mutex);
 	return r;

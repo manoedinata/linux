@@ -2292,7 +2292,12 @@ void slsi_vif_deactivated(struct slsi_dev *sdev, struct net_device *dev)
 	ndev_vif->vif_type = SLSI_VIFTYPE_UNSPECIFIED;
 	if (slsi_is_rf_test_mode_enabled())
 		SLSI_NET_ERR(dev, "*#rf# rf test mode set is enabled.\n");
-	ndev_vif->set_power_mode = slsi_default_power_mode();
+	/* the next connection keeps what cfg80211 (iw, NetworkManager) last set */
+	if (slsi_is_rf_test_mode_enabled() || !dev->ieee80211_ptr)
+		ndev_vif->set_power_mode = slsi_default_power_mode();
+	else
+		ndev_vif->set_power_mode = dev->ieee80211_ptr->ps ? FAPI_POWERMANAGEMENTMODE_POWER_SAVE :
+								     FAPI_POWERMANAGEMENTMODE_ACTIVE_MODE;
 	ndev_vif->mgmt_tx_data.exp_frame = SLSI_PA_INVALID;
 
 	/* SHOULD have cleared any peer records */
