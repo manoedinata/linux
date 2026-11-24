@@ -429,6 +429,18 @@ static const struct samsung_cmu_info peri_cmu_info __initconst = {
 	.nr_clk_ids		= PERI_NR_CLK,
 };
 
+static void __init exynos7570_cmu_peri_init(struct device_node *np)
+{
+	exynos_arm64_register_cmu(NULL, np, &peri_cmu_info);
+}
+
+/*
+ * Register CMU_PERI early: the MCT, a timer set up in time_init(), takes its
+ * bus clock from here. Its parents in CMU_MIF are resolved later by name.
+ */
+CLK_OF_DECLARE(exynos7570_cmu_peri, "samsung,exynos7570-cmu-peri",
+	       exynos7570_cmu_peri_init);
+
 /*
  * Register offsets for CMU_DISPAUD (0x148d0000)
  */
@@ -820,10 +832,6 @@ static const struct of_device_id exynos7570_cmu_of_match[] = {
 	{
 		.compatible = "samsung,exynos7570-cmu-fsys",
 		.data = &fsys_cmu_info,
-	},
-	{
-		.compatible = "samsung,exynos7570-cmu-peri",
-		.data = &peri_cmu_info,
 	},
 	{
 		.compatible = "samsung,exynos7570-cmu-dispaud",
