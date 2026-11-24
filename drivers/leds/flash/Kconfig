@@ -31,6 +31,15 @@ config LEDS_KTD2692
 
 	  Say Y to enable this driver.
 
+config LEDS_S2MPU06
+	tristate "LED support for the Samsung S2MPU06 PMIC flash block"
+	depends on MFD_S2MPU06 || COMPILE_TEST
+	depends on GPIOLIB && OF
+	depends on EXTCON || !EXTCON
+	help
+	  This option enables the torch and flash LED driven by the flash
+	  block of the Samsung S2MPU06 PMIC, as on the Galaxy J4 rear camera.
+
 config LEDS_LM3601X
 	tristate "LED support for LM3601x Chips"
 	depends on LEDS_CLASS && I2C

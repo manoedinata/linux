@@ -56,6 +56,7 @@ struct s2mpu06 {
 	struct regmap *chg;
 	struct regmap *fg;
 	struct regmap *codec;
+	struct regmap *fled;
 	struct regmap_irq_chip_data *irq_data;
 
 	/* called with the fuel gauge's interrupt status (VBAT low, SOC low, ...) */

@@ -108,6 +108,10 @@ static const struct mfd_cell s2mpu06_cells[] = {
 		.num_resources = ARRAY_SIZE(s2mpu06_pwrkey_res),
 		.resources = s2mpu06_pwrkey_res,
 	},
+	{
+		.name = "s2mpu06-fled",
+		.of_compatible = "samsung,s2mpu06-fled",
+	},
 };
 
 static int s2mpu06_probe(struct platform_device *pdev)
@@ -146,6 +150,11 @@ static int s2mpu06_probe(struct platform_device *pdev)
 	s2m->codec = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_CODEC);
 	if (IS_ERR(s2m->codec))
 		s2m->codec = NULL;
+
+	/* the flash LED cell gives up without it */
+	s2m->fled = devm_exynos_speedy_regmap(dev, S2MPU06_BLK_FLED);
+	if (IS_ERR(s2m->fled))
+		s2m->fled = NULL;
 
 	ret = regmap_read(s2m->top, S2MPU06_TOP_PMICID, &id);
 	if (ret)
