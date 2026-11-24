@@ -32,6 +32,7 @@ properties:
               - samsung,exynos5260-mct
               - samsung,exynos5420-mct
               - samsung,exynos5433-mct
+              - samsung,exynos7570-mct
               - samsung,exynos850-mct
               - tesla,fsd-mct
           - const: samsung,exynos4210-mct
