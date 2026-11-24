@@ -105,6 +105,26 @@ properties:
     $ref: /schemas/types.yaml#/definitions/uint8-array
     description: The 5 bytes of cell characteristics (gauge registers 0x0f..0x13) of every step.
 
+  flash-led:
+    type: object
+    $ref: /schemas/leds/common.yaml#
+    unevaluatedProperties: false
+    description:
+      The flash LED block. Torch mode is set over SPEEDY, the flash is fired
+      by a GPIO from the AP.
+
+    properties:
+      compatible:
+        const: samsung,s2mpu06-fled
+
+      flash-gpios:
+        maxItems: 1
+        description: Fires the flash at the flash current while high.
+
+    required:
+      - compatible
+      - flash-gpios
+
   regulators:
     type: object
     description: Regulator nodes named after the rails.
