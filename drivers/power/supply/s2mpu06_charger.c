@@ -844,10 +844,6 @@ static int s2mpu06_charger_cable_event(struct notifier_block *nb, unsigned long 
 	return NOTIFY_OK;
 }
 
-static const unsigned int s2mpu06_charger_cables[] = {
-	EXTCON_CHG_USB_SDP, EXTCON_CHG_USB_DCP, EXTCON_CHG_USB_CDP, EXTCON_JIG, EXTCON_DOCK,
-};
-
 static void s2mpu06_charger_cancel_cable(void *data)
 {
 	cancel_work_sync(data);
@@ -941,14 +937,15 @@ static int s2mpu06_charger_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 
+		/*
+		 * One notifier block can sit on one chain only: the same block on
+		 * several cable chains links them together. Watch all cables at once,
+		 * the work re-reads every state anyway.
+		 */
 		chg->cable_nb.notifier_call = s2mpu06_charger_cable_event;
-		for (i = 0; i < ARRAY_SIZE(s2mpu06_charger_cables); i++) {
-			ret = devm_extcon_register_notifier(dev, chg->edev,
-							    s2mpu06_charger_cables[i],
-							    &chg->cable_nb);
-			if (ret)
-				return dev_err_probe(dev, ret, "cannot watch the cable\n");
-		}
+		ret = devm_extcon_register_notifier_all(dev, chg->edev, &chg->cable_nb);
+		if (ret)
+			return dev_err_probe(dev, ret, "cannot watch the cable\n");
 		schedule_work(&chg->cable_work);
 	}
 
